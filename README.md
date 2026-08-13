@@ -41,6 +41,14 @@ The advanced options allow for further customisation, at the cost of some user-f
  - Split mode on Windows 10 only supports the main taskbar, secondary taskbars will not be split.
  - Compatibility with taskbar mods outside of TranslucentTB version 2021.5 is not currently guaranteed.
 
+## AI-generated code
+
+This project is a community-maintained revival of RoundedTB. A significant portion of the recent
+code — Windows 11 22H2+/24H2 compatibility fixes, localization (i18n), settings robustness and
+worker-loop recovery — was written with the assistance of AI (the **DeepSeek V4** model, working
+through Claude Code). Any AI-assisted code is released under the same **GNU GPL v3** terms as the
+rest of the project.
+
 ## Credits
 
 - **torchgm** — original author of [RoundedTB](https://github.com/torchgm/RoundedTB) (GPL v3).
@@ -48,6 +56,8 @@ The advanced options allow for further customisation, at the cost of some user-f
   build are ported from their fork: secondary-taskbar tray geometry, hover-state persistence,
   atomic settings writes with legacy-config migration, worker-loop recovery, and Explorer-restart
   backoff. Thank you for the excellent work!
+- **DeepSeek (V4)** — model used to assist with the compatibility and stability work (see
+  "AI-generated code" above).
 
 ## Other info
 If anything breaks catastrophically, press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Esc</kbd> to open Task Manager, end RoundedTB Revived and then restart Explorer. At worst, just reboot your PC. RoundedTB Revived makes no permanent changes (though it will run on startup if you enable it from the tray icon), so restarting should clear any issues.
