@@ -44,6 +44,7 @@ namespace RoundedTB
         private HwndSource source;
         public int selectedSegment = 0; // 0 = Simple, 1 = AppList, 2 = Tray, 3 = Widgets
         public int version = -1;
+        private bool _lastTrayLight = false; // 上次托盘图标用的主题(暗色=false/亮色=true),避免每帧重建图标
         /// <summary>
         /// Versions:
         /// -1: Canary
@@ -60,8 +61,15 @@ namespace RoundedTB
             InitializeComponent();
 
             // 右上角关闭按钮 = 只隐藏设置窗口,程序继续在托盘运行(对齐 R3.1 / ModernWpf 行为)。
-            // WPFUI 的 TitleBar 关闭按钮走它自己的关闭逻辑,OnClosing 拦不住,必须用 CloseActionOverride。
-            mainTitleBar.CloseActionOverride = (tb, win) => win.Hide();
+            // WPFUI 的 TitleBar 在 ApplicationNavigation 模式下,关闭按钮默认会直接 Application.Shutdown(),
+            // 必须用 CloseActionOverride 接管。注意:它传的是内部 _parent 字段(懒赋值,可能为 null),需防御。
+            mainTitleBar.CloseActionOverride = (tb, win) =>
+            {
+                (win ?? Window.GetWindow(tb) ?? this).Hide();
+            };
+
+            // 左键单击托盘图标:显示/隐藏设置窗口。
+            mainTitleBar.NotifyIconClick += (s, e) => ShowMenuItem_Click(null, null);
 
 
             // Check OS build, as behaviours rather-annoyingly differ between Windows 11 and Windows 10
@@ -110,7 +118,9 @@ namespace RoundedTB
                 Close();
                 return;
             }
-            TrayIconCheck();
+            // 托盘图标在窗口加载后(而非构造时)设置,避免 TitleBar 尚未创建 TaskbarIcon 时
+            // ResetIcon 造成双重创建/闪烁。
+            Loaded += (s, e) => TrayIconCheck();
 
             if (IsRunningAsUWP())
             {
@@ -435,12 +445,19 @@ namespace RoundedTB
                     // 读不到注册表时按暗色处理(保持默认白色图标)。
                 }
 
+                // 主题没变就不刷新,避免 Background 每秒调用时反复重建托盘图标(会闪烁)。
+                if (light == _lastTrayLight)
+                {
+                    return;
+                }
+                _lastTrayLight = light;
+
                 Uri resLight = new("pack://application:,,,/res/traylight.ico");
                 Uri resDark = new("pack://application:,,,/res/traydark.ico");
-                System.Windows.Media.Imaging.BitmapImage icon = light
-                    ? new System.Windows.Media.Imaging.BitmapImage(resLight)
-                    : new System.Windows.Media.Imaging.BitmapImage(resDark);
-                mainTitleBar.NotifyIconImage = icon;
+                mainTitleBar.NotifyIconImage = new System.Windows.Media.Imaging.BitmapImage(light ? resLight : resDark);
+                // WPFUI 的 NotifyIconImage 依赖属性没有变更回调,设置后不会自动刷新托盘图标,
+                // 必须显式 ResetIcon() 重建(它在 InitializeNotifyIcon 时读取当前 NotifyIconImage)。
+                mainTitleBar.ResetIcon();
             }
             catch (Exception)
             {
@@ -585,6 +602,8 @@ namespace RoundedTB
             shouldReallyDieNoReally = true;
 
             Close();
+            // ShutdownMode 为 OnExplicitShutdown,关闭窗口不会自动退出,必须显式 Shutdown。
+            System.Windows.Application.Current.Shutdown();
         }
 
         public void ShowMenuItem_Click(object sender, RoutedEventArgs e)
