@@ -95,8 +95,8 @@ namespace RoundedTB
             }
 
             // Initialise functions
-            background = new Background();
-            interaction = new Interaction();
+            background = new Background(this);
+            interaction = new Interaction(this);
 
             // Check if RoundedTB is already running, and if it is, do nothing.
             Process[] matchingProcesses = Process.GetProcessesByName(Process.GetCurrentProcess().ProcessName);
@@ -290,6 +290,12 @@ namespace RoundedTB
             fillAltTabCheckBox.IsChecked = activeSettings.FillOnTaskSwitch;
             showSegmentsOnHoverCheckBox.IsChecked = activeSettings.ShowSegmentsOnHover;
             compositionFixCheckBox.IsChecked = activeSettings.CompositionCompat;
+            // 老配置可能存 AutoHide=2(原版第三项占位,从未实现),现在下拉只剩两项,
+            // 归一为 1 避免 SelectedIndex 越界。
+            if (activeSettings.AutoHide > 1)
+            {
+                activeSettings.AutoHide = 1;
+            }
             autoHideComboBox.SelectedIndex = activeSettings.AutoHide;
             taskbarDetails = Taskbar.GenerateTaskbarInfo();
 
@@ -847,28 +853,6 @@ namespace RoundedTB
 
         }
 
-        private void DebugMenuItem_Click(object sender, RoutedEventArgs e)
-        {
-            IntPtr hwndNext = LocalPInvoke.FindWindowExA(taskbarDetails[0].TaskbarHwnd, IntPtr.Zero, "Start", null);
-            List<IntPtr> floatingMilkshakesBitsOfTaskbar = new List<IntPtr>();
-            floatingMilkshakesBitsOfTaskbar.Add(hwndNext);
-            while (true) 
-            {
-                hwndNext = LocalPInvoke.FindWindowExA(taskbarDetails[0].TaskbarHwnd, hwndNext, null, null);
-                if (floatingMilkshakesBitsOfTaskbar.Contains(hwndNext))
-                {
-                    break;
-                }
-                floatingMilkshakesBitsOfTaskbar.Add(hwndNext);
-
-            }
-            foreach (IntPtr hwnd in floatingMilkshakesBitsOfTaskbar)
-            {
-                LocalPInvoke.GetWindowRect(hwnd, out LocalPInvoke.RECT rect);
-                LocalPInvoke.MoveWindow(hwnd, rect.Left + 50, rect.Top, (rect.Right + 50) - (rect.Left + 50), rect.Bottom - rect.Top, true);
-            }
-        }
-
         private async void ContextMenu_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e)
         {
             if (IsRunningAsUWP())
@@ -942,18 +926,13 @@ namespace RoundedTB
 
         protected override void OnSourceInitialized(EventArgs e)
         {
-            Debug.WriteLine("AAAAA");
             base.OnSourceInitialized(e);
-
 
             IntPtr handle = new WindowInteropHelper(this).Handle;
             source = HwndSource.FromHwnd(handle);
             source.AddHook(interaction.HwndHook);
-            bool wtf = LocalPInvoke.RegisterHotKey(handle, 9000, 0x8, 0x71);
-            Debug.WriteLine("KEY: " + wtf);
-            Debug.WriteLine(handle);
-            Debug.WriteLine((int)Types.KeyModifier.WinKey);
-            Debug.WriteLine(System.Windows.Forms.Keys.J.GetHashCode());
+            // 注册 Win+F2 热键(切换显示托盘段,README 承诺的功能)。id 9000 与 HwndHook 对应。
+            LocalPInvoke.RegisterHotKey(handle, 9000, 0x8, 0x71);
             Visibility = Visibility.Hidden;
             Opacity = 1;
         }

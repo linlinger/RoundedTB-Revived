@@ -15,18 +15,10 @@ namespace RoundedTB
     public class Interaction
     {
         public MainWindow mw;
-        string m = "";
 
-        public Interaction()
+        public Interaction(MainWindow mw = null)
         {
-            try
-            {
-                mw = (MainWindow)Application.Current.MainWindow;
-            }
-            catch (Exception)
-            {
-                // No idea why this was necessary but it was so it's here now. Yay. TODO - work out why this is suddenly broken and unbreak it
-            }
+            this.mw = mw;
         }
 
         /// <summary>
@@ -133,7 +125,7 @@ namespace RoundedTB
             };
         }
 
-        public bool IsWindows11()
+        public static bool IsWindows11()
         {
             try
             {
@@ -306,47 +298,27 @@ namespace RoundedTB
             }
         }
 
-        // Request that TranslucentTB forefully refesh the taskbar
-        public static IntPtr UpdateTranslucentTB(IntPtr taskbarHwnd)
-        {
-            return LocalPInvoke.SendMessage(LocalPInvoke.FindWindow("TTB_WorkerWindow", "TTB_WorkerWindow"), LocalPInvoke.RegisterWindowMessage("TTB_ForceRefreshTaskbar"), 0, taskbarHwnd);
-        }
-        
-        // Attempt to forcefully refresh the taskbar
-        public static void UpdateLegacyTB(IntPtr taskbarHwnd)
-        {
-            const int WM_DWMCOMPOSITIONCHANGED = 789;
-            LocalPInvoke.SendMessage(taskbarHwnd, WM_DWMCOMPOSITIONCHANGED, 1, IntPtr.Zero);
-        }
+        /// <summary>
+        /// 由 Background 在 AutoHide 淡入/淡出动画期间置位,抑制对 TranslucentTB 的 force-refresh。
+        /// </summary>
+        public static bool SuppressTranslucentRefresh;
 
         /// <summary>
-        /// Calculates whether or not an integer is odd or even.
+        /// 请求 TranslucentTB 重刷任务栏外观。基于 TTB v4 源码(taskbarattributeworker.cpp:262-276)
+        /// 加了保护:
+        /// 1) TTB 未运行:TTB_WorkerWindow 不存在,发送无意义。
+        /// 2) Win11:TTB 的 TTB_ForceRefreshTaskbar 在有 m_TaskbarService(XAML 任务栏)时是 no-op。
+        /// 3) SuppressTranslucentRefresh(AutoHide 淡入/淡出动画中):Win10 上 force-refresh 会触发
+        ///    WM_DWMCOMPOSITIONCHANGED ×2 让 Explorer 重组任务栏回默认外观(alpha→255),把淡出拉回,
+        ///    淡出期间反复发送正是闪烁放大器。
         /// </summary>
-        /// <param name="input">
-        /// The integer to be checked for oddness.
-        /// </param>
-        /// <returns>
-        /// A nullable bool, which represents if the provided integer is odd. If the provided integer is neither even nor odd, then returns null.
-        /// </returns>
-        public bool? IsOdd(int input)
+        public static IntPtr UpdateTranslucentTB(IntPtr taskbarHwnd)
         {
-            // The following section declares and initialises the required variables for the caculation.
-            decimal comparison = input / 2; // A decimal, representing approximately half of the user's input.
-            int check = Convert.ToInt32(comparison) * 2; // An integer-representation of the user's input value.
-
-            // The following section tests for oddness by looking for differences in the prior-initialised values.
-            if (check == input) // Checks if the "check" value is equal to the input.
-            {
-                return false; // Return false to indicate the value is not odd.
-            }
-            else if (check != input) // Repeat the above check in the event that quantum tunnelling has resulted in a variable changing.
-            {
-                return true; // Return true to indicate the value is odd.
-            }
-            return null; // Finally, return null to indicate that the provided number is neither odd nor even - not currently required, added for future-proofing in the event the concept of mathematics changes significantly enough to warrant it.
-        // (this is a joke to annoy sylly)
+            if (SuppressTranslucentRefresh) return IntPtr.Zero;
+            if (!IsTranslucentTBRunning()) return IntPtr.Zero;
+            if (IsWindows11()) return IntPtr.Zero;
+            return LocalPInvoke.SendMessage(LocalPInvoke.FindWindow("TTB_WorkerWindow", "TTB_WorkerWindow"), LocalPInvoke.RegisterWindowMessage("TTB_ForceRefreshTaskbar"), 0, taskbarHwnd);
         }
-
         public IntPtr HwndHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
             const int WM_HOTKEY = 0x0312;

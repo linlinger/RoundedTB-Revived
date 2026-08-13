@@ -23,7 +23,6 @@ namespace RoundedTB
             public bool TaskbarHidden { get; set; } // Specifies if this taskbar is currently hidden by RTB
             public bool TrayHidden { get; set; } // Specifies if the tray is currently hidden by RTB on this taskbar
             public int AppListWidth { get; set; } // Specifies the width of the app list
-            public TaskbarEffect TaskbarEffectWindow { get; set; } // Unused clone to apply effects to the taskbar
             public int ContentLeft { get; set; } = -1; // Real left edge of the app-list content (UIA, screen coords); -1 = unknown
             public int ContentRight { get; set; } = -1; // Real right edge of the app-list content (UIA, screen coords); -1 = unknown
         }

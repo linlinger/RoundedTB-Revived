@@ -29,9 +29,9 @@ namespace RoundedTB
         private bool hoverShowTray;
         private bool hoverShowWidgets;
 
-        public Background()
+        public Background(MainWindow mw = null)
         {
-            mw = (MainWindow)Application.Current.MainWindow;
+            this.mw = mw;
         }
 
 
@@ -251,7 +251,16 @@ namespace RoundedTB
                                 bool isHoveringOverTaskbar;
                                 if (taskbars[current].TaskbarHidden)
                                 {
-                                    currentTaskbarRect.Top = currentTaskbarRect.Bottom - 2;
+                                    // 隐藏后只留停靠边 2px 触发区。默认假设底部停靠;
+                                    // 顶部停靠时压顶边 2px,否则顶部任务栏无法用鼠标唤醒淡入。
+                                    if (IsTaskbarAtTop(taskbars[current].TaskbarHwnd, currentTaskbarRect))
+                                    {
+                                        currentTaskbarRect.Bottom = currentTaskbarRect.Top + 2;
+                                    }
+                                    else
+                                    {
+                                        currentTaskbarRect.Top = currentTaskbarRect.Bottom - 2;
+                                    }
                                     isHoveringOverTaskbar = LocalPInvoke.PtInRect(ref currentTaskbarRect, msPt);
 
                                 }
@@ -269,39 +278,58 @@ namespace RoundedTB
                                 //Debug.WriteLine($"Taskbar opacity:  {taskbarOpacity}");
                                 if (isHoveringOverTaskbar && taskbarOpacity == 1)
                                 {
-                                    int style = LocalPInvoke.GetWindowLong(taskbars[current].TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE).ToInt32();
-                                    if ((style & LocalPInvoke.WS_EX_TRANSPARENT) == LocalPInvoke.WS_EX_TRANSPARENT)
+                                    // 淡入/淡出动画期间抑制对 TranslucentTB 的 force-refresh:
+                                    // Win10 上它会触发 Explorer 重组任务栏回默认外观,把 alpha 拉回
+                                    // 255 造成拉锯闪烁(见 Interaction.UpdateTranslucentTB 说明)。
+                                    Interaction.SuppressTranslucentRefresh = true;
+                                    try
                                     {
-                                        LocalPInvoke.SetWindowLong(taskbars[current].TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE, LocalPInvoke.GetWindowLong(taskbars[current].TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE).ToInt32() ^ LocalPInvoke.WS_EX_TRANSPARENT);
+                                        int style = LocalPInvoke.GetWindowLong(taskbars[current].TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE).ToInt32();
+                                        if ((style & LocalPInvoke.WS_EX_TRANSPARENT) == LocalPInvoke.WS_EX_TRANSPARENT)
+                                        {
+                                            LocalPInvoke.SetWindowLong(taskbars[current].TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE, LocalPInvoke.GetWindowLong(taskbars[current].TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE).ToInt32() ^ LocalPInvoke.WS_EX_TRANSPARENT);
+                                        }
+                                        LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 63, LocalPInvoke.LWA_ALPHA);
+                                        System.Threading.Thread.Sleep(animSpeed);
+                                        LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 127, LocalPInvoke.LWA_ALPHA);
+                                        System.Threading.Thread.Sleep(animSpeed);
+                                        LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 191, LocalPInvoke.LWA_ALPHA);
+                                        System.Threading.Thread.Sleep(animSpeed);
+                                        LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 255, LocalPInvoke.LWA_ALPHA);
+                                        taskbars[current].Ignored = true;
+                                        taskbars[current].TaskbarHidden = false;
+                                        Debug.WriteLine("MouseOver TB");
                                     }
-                                    LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 63, LocalPInvoke.LWA_ALPHA);
-                                    System.Threading.Thread.Sleep(animSpeed);
-                                    LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 127, LocalPInvoke.LWA_ALPHA);
-                                    System.Threading.Thread.Sleep(animSpeed);
-                                    LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 191, LocalPInvoke.LWA_ALPHA);
-                                    System.Threading.Thread.Sleep(animSpeed);
-                                    LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 255, LocalPInvoke.LWA_ALPHA);
-                                    taskbars[current].Ignored = true;
-                                    taskbars[current].TaskbarHidden = false;
-                                    Debug.WriteLine("MouseOver TB");
+                                    finally
+                                    {
+                                        Interaction.SuppressTranslucentRefresh = false;
+                                    }
                                 }
                                 else if (!isHoveringOverTaskbar && taskbarOpacity == 255)
                                 {
-                                    LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 191, LocalPInvoke.LWA_ALPHA);
-                                    System.Threading.Thread.Sleep(animSpeed);
-                                    LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 127, LocalPInvoke.LWA_ALPHA);
-                                    System.Threading.Thread.Sleep(animSpeed);
-                                    LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 63, LocalPInvoke.LWA_ALPHA);
-                                    System.Threading.Thread.Sleep(animSpeed);
-                                    LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 1, LocalPInvoke.LWA_ALPHA);
-                                    int style = LocalPInvoke.GetWindowLong(taskbars[current].TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE).ToInt32();
-                                    if ((style & LocalPInvoke.WS_EX_TRANSPARENT) != LocalPInvoke.WS_EX_TRANSPARENT)
+                                    Interaction.SuppressTranslucentRefresh = true;
+                                    try
                                     {
-                                        LocalPInvoke.SetWindowLong(taskbars[current].TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE, LocalPInvoke.GetWindowLong(taskbars[current].TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE).ToInt32() ^ LocalPInvoke.WS_EX_TRANSPARENT);
+                                        LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 191, LocalPInvoke.LWA_ALPHA);
+                                        System.Threading.Thread.Sleep(animSpeed);
+                                        LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 127, LocalPInvoke.LWA_ALPHA);
+                                        System.Threading.Thread.Sleep(animSpeed);
+                                        LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 63, LocalPInvoke.LWA_ALPHA);
+                                        System.Threading.Thread.Sleep(animSpeed);
+                                        LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 1, LocalPInvoke.LWA_ALPHA);
+                                        int style = LocalPInvoke.GetWindowLong(taskbars[current].TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE).ToInt32();
+                                        if ((style & LocalPInvoke.WS_EX_TRANSPARENT) != LocalPInvoke.WS_EX_TRANSPARENT)
+                                        {
+                                            LocalPInvoke.SetWindowLong(taskbars[current].TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE, LocalPInvoke.GetWindowLong(taskbars[current].TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE).ToInt32() ^ LocalPInvoke.WS_EX_TRANSPARENT);
+                                        }
+                                        taskbars[current].Ignored = true;
+                                        taskbars[current].TaskbarHidden = true;
+                                        Debug.WriteLine("MouseOff TB");
                                     }
-                                    taskbars[current].Ignored = true;
-                                    taskbars[current].TaskbarHidden = true;
-                                    Debug.WriteLine("MouseOff TB");
+                                    finally
+                                    {
+                                        Interaction.SuppressTranslucentRefresh = false;
+                                    }
                                 }
                             }
                             else
@@ -433,6 +461,27 @@ namespace RoundedTB
                 Debug.WriteLine("Taskbar handles unavailable - retrying slowly");
                 mw.SetTrayStatus("RoundedTB - waiting for the taskbar...");
             }
+        }
+
+        /// <summary>
+        /// 判断任务栏停靠在监视器顶部还是底部(仅水平停靠,左右不做)。用于 AutoHide 隐藏后
+        /// 2px 边缘触发区的定位。
+        /// </summary>
+        private static bool IsTaskbarAtTop(IntPtr taskbarHwnd, LocalPInvoke.RECT taskbarRect)
+        {
+            try
+            {
+                IntPtr monitor = LocalPInvoke.MonitorFromWindow(taskbarHwnd, 2); // MONITOR_DEFAULTTONEAREST
+                LocalPInvoke.MONITORINFO mi = new LocalPInvoke.MONITORINFO();
+                mi.cbSize = System.Runtime.InteropServices.Marshal.SizeOf(mi);
+                if (LocalPInvoke.GetMonitorInfo(monitor, ref mi))
+                {
+                    // 任务栏顶边距监视器顶 比 任务栏底边距监视器底 更近 → 顶部停靠
+                    return (taskbarRect.Top - mi.rcMonitor.Top) < (mi.rcMonitor.Bottom - taskbarRect.Bottom);
+                }
+            }
+            catch (Exception) { }
+            return false; // 默认按底部处理
         }
     }
 }

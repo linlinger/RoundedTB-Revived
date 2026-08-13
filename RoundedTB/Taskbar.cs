@@ -164,6 +164,21 @@ namespace RoundedTB
         }
 
         /// <summary>
+        /// Ensures WS_EX_LAYERED is present on the taskbar. ResetTaskbar (used by FillOnMaximise)
+        /// strips it, and without it GetLayeredWindowAttributes fails - which silently kills the
+        /// AutoHide fade (Background reads the current opacity via LWA). Region re-applies restore
+        /// it here so a single maximise no longer disables AutoHide fading for the session.
+        /// </summary>
+        private static void EnsureLayered(Types.Taskbar taskbar)
+        {
+            int exStyle = LocalPInvoke.GetWindowLong(taskbar.TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE).ToInt32();
+            if ((exStyle & LocalPInvoke.WS_EX_LAYERED) != LocalPInvoke.WS_EX_LAYERED)
+            {
+                LocalPInvoke.SetWindowLong(taskbar.TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE, exStyle | LocalPInvoke.WS_EX_LAYERED);
+            }
+        }
+
+        /// <summary>
         /// Creates a basic region for a specific taskbar and applies it.
         /// </summary>
         /// <returns>
@@ -185,6 +200,7 @@ namespace RoundedTB
 
                 IntPtr region = LocalPInvoke.CreateRoundRectRgn(taskbarEffectiveRegion.Left, taskbarEffectiveRegion.Top, taskbarEffectiveRegion.Width, taskbarEffectiveRegion.Height, taskbarEffectiveRegion.CornerRadius, taskbarEffectiveRegion.CornerRadius);
                 LocalPInvoke.SetWindowRgn(taskbar.TaskbarHwnd, region, true);
+                EnsureLayered(taskbar);
                 if (settings.CompositionCompat)
                 {
                     Interaction.UpdateTranslucentTB(taskbar.TaskbarHwnd);
@@ -362,6 +378,7 @@ namespace RoundedTB
 
                 // Apply the final region to the taskbar
                 LocalPInvoke.SetWindowRgn(taskbar.TaskbarHwnd, mainRegion, true);
+                EnsureLayered(taskbar);
                 if (settings.CompositionCompat)
                 {
                     Interaction.UpdateTranslucentTB(taskbar.TaskbarHwnd);
@@ -526,9 +543,8 @@ namespace RoundedTB
                 {
                     LocalPInvoke.GetWindowRect(hwndCurrent, out LocalPInvoke.RECT rectCurrent);
                     LocalPInvoke.GetWindowRgn(hwndCurrent, out IntPtr hrgnCurrent);
-                    Interaction interaction = new Interaction();
                     IntPtr hwndSecTray = IntPtr.Zero;
-                    if (interaction.IsWindows11())
+                    if (Interaction.IsWindows11())
                     {
                         IntPtr imd = LocalPInvoke.FindWindowExA(hwndCurrent, IntPtr.Zero, "Windows.UI.Composition.DesktopWindowContentBridge", null);
                         hwndSecTray = LocalPInvoke.FindWindowExA(hwndCurrent, imd, "Windows.UI.Composition.DesktopWindowContentBridge", null);
@@ -564,10 +580,6 @@ namespace RoundedTB
                 }
             }
 
-            //foreach (var tb in retVal)
-            //{
-            //    TaskbarShouldBeFilled(tb.TaskbarHwnd);
-            //}
             return retVal;
         }
 
