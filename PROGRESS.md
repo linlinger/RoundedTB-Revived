@@ -103,9 +103,15 @@
 - [ ] **.NET 10 迁移**(gniang `56e12f9`):net8 LTS 至 2026-11 仍支持,当前不动;待 net8 EOL
   临近时一次性做(纯 TFM 改动 + 冒烟测试,参考 gniang 的 csproj diff,不照搬其死代码清理/
   ShellLink 重构)。
-- [ ] **self-contained 发布**(对老用户更友好):net8 桌面程序要求装 .NET 8 Desktop Runtime,
-  老机器大概率没有 → 发布时 `dotnet publish -r win-x64 --self-contained true`,runtime
-  打进 exe 双击即用。
+- [x] **self-contained 发布** — 已随 R4 pre-release 附
+  `RoundedTB-R4-win-x64-selfcontained.zip`(内置 runtime,双击即用)。
+- [ ] **R4 后续(2026-08-14 发布后)**:
+  - [ ] **26H1 实测确认** → 把 R4 pre-release 转正式版(去掉 pre-release 标记)。
+  - [ ] **移除 csproj 的 `Microsoft.Windows.Compatibility` 包**(引入大量 System.* dll,
+    self-contained 80MB→~40MB);移除后需验证编译无缺 API(项目实际只用
+    PInvoke/WinForms/UIA,大概率可安全移除)。
+  - [ ] **代码注释中的 TODO/已知问题盘点**(见计划模式梳理的产出)。
+  - [ ] **AutoHide(隐藏任务栏)冲突梳理**(动态模式/悬停/TranslucentTB 交互,见计划模式)。
 - [ ] i18n 进一步完善(语言切换 UI、新增语言自动识别)——已实施基础保留,整体待规划。
 - [ ] 分段隐藏不同任务栏段(用户明确本轮不做)。
 - [ ] 启动闪窗(低优先级,见上)。
