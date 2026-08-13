@@ -537,7 +537,9 @@ namespace RoundedTB
                     {
                         hwndSecTray = LocalPInvoke.FindWindowExA(hwndCurrent, IntPtr.Zero, "TrayNotifyWnd", null); // Get handle to this secondary taskbar's tray
                     }
-                    LocalPInvoke.GetWindowRect(hwndTray, out LocalPInvoke.RECT rectSecTray); // Get the RECT for this secondary taskbar's tray
+                    // 移植自 gniang (Phase 1):此前误用主任务栏的 hwndTray 取副任务栏 tray 的 RECT,
+                    // 导致副屏任务栏的 tray 几何恒等于主屏。句柄缺失时回退主句柄避免 GetWindowRect 失败。
+                    LocalPInvoke.GetWindowRect(hwndSecTray != IntPtr.Zero ? hwndSecTray : hwndTray, out LocalPInvoke.RECT rectSecTray); // Get the RECT for this secondary taskbar's tray
                     IntPtr hwndSecAppList = LocalPInvoke.FindWindowExA(LocalPInvoke.FindWindowExA(hwndCurrent, IntPtr.Zero, "WorkerW", null), IntPtr.Zero, "MSTaskListWClass", null); // Get the handle to the main taskbar's app list
                     LocalPInvoke.GetWindowRect(hwndSecAppList, out LocalPInvoke.RECT rectSecAppList);// Get the RECT for this secondary taskbar's app list
                     retVal.Add(new Types.Taskbar
