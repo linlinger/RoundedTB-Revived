@@ -232,18 +232,26 @@ namespace RoundedTB
                 }
 
                 // 结构性约束:应用列表的右边界不应越过托盘左边界(防止溢出/异常的 UIA 值
-                // 导致任务栏右侧偶发多出一段)。
-                if (taskbar.TrayRect.Left > taskbar.TaskbarRect.Left)
+                // 导致任务栏右侧偶发多出一段)。注意:只压缩右边界,绝不反向拉小左边界,
+                // 否则会在左侧露出一大段空白任务栏(悬停托盘重绘时偶发触发)。
+                if (taskbar.TrayRect.Left > taskbar.TaskbarRect.Left && taskbar.TrayRect.Left > contentLeft)
                 {
                     int maxContentRight = taskbar.TrayRect.Left - Convert.ToInt32(1 * taskbar.ScaleFactor);
                     if (contentRight > maxContentRight)
                     {
                         contentRight = maxContentRight;
                     }
-                    if (contentLeft > contentRight)
-                    {
-                        contentLeft = contentRight - 1;
-                    }
+                }
+                // 内容左缘不可能在任务栏左缘之外。
+                if (contentLeft < taskbar.TaskbarRect.Left)
+                {
+                    contentLeft = taskbar.TaskbarRect.Left;
+                }
+                // 兜底:内容边界失效(右 ≤ 左)时退回 legacy 窗口矩形,而不是把左边界拉崩。
+                if (contentRight <= contentLeft)
+                {
+                    contentLeft = taskbar.AppListRect.Left;
+                    contentRight = taskbar.AppListRect.Right;
                 }
 
                 // Convert to coordinates relative to the taskbar's own top-left corner (SetWindowRgn space).

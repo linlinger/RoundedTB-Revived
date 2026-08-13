@@ -91,7 +91,15 @@ namespace RoundedTB
                             {
                                 if (Taskbar.GetTrueTaskbarContentBounds(tb, out int contentLeft, out int contentRight))
                                 {
-                                    if (contentLeft != tb.ContentLeft || contentRight != tb.ContentRight)
+                                    // 合理性检查:UIA 在任务栏重绘/悬停等瞬间偶发返回异常值,
+                                    // 只在结果可信时才更新缓存,避免把左/右边界拉崩
+                                    // (例如左侧多出一段空白任务栏)。
+                                    bool sane =
+                                        contentLeft >= tb.TaskbarRect.Left &&
+                                        contentRight > contentLeft &&
+                                        contentRight <= tb.TaskbarRect.Right &&
+                                        (tb.TrayRect.Left <= tb.TaskbarRect.Left || contentRight <= tb.TrayRect.Left);
+                                    if (sane && (contentLeft != tb.ContentLeft || contentRight != tb.ContentRight))
                                     {
                                         tb.ContentLeft = contentLeft;
                                         tb.ContentRight = contentRight;
