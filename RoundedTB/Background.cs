@@ -84,6 +84,22 @@ namespace RoundedTB
                                 }
                             });
 
+                            // On Windows 11 22H2+ the legacy app-list window rects no longer move as
+                            // apps open and close, so periodically re-derive the true content bounds
+                            // from UI Automation and force a redraw when they change.
+                            foreach (Types.Taskbar tb in mw.taskbarDetails)
+                            {
+                                if (Taskbar.GetTrueTaskbarContentBounds(tb, out int contentLeft, out int contentRight))
+                                {
+                                    if (contentLeft != tb.ContentLeft || contentRight != tb.ContentRight)
+                                    {
+                                        tb.ContentLeft = contentLeft;
+                                        tb.ContentRight = contentRight;
+                                        tb.Ignored = true;
+                                    }
+                                }
+                            }
+
                             infrequentCount = 0;
                         }
 

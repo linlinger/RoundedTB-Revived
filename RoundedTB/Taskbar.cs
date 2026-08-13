@@ -7,6 +7,7 @@ using Microsoft.Win32;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Threading;
 using Newtonsoft.Json;
 using System.Runtime.InteropServices;
@@ -25,35 +26,27 @@ namespace RoundedTB
         /// </returns>
         public static bool CheckIfCentred()
         {
-            bool retVal;
             try
             {
                 using (RegistryKey key = Registry.CurrentUser.OpenSubKey("Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced"))
                 {
                     if (key != null)
                     {
-                        int val = (int)key.GetValue("TaskbarAl");
-
-                        if (val == 1)
+                        object raw = key.GetValue("TaskbarAl");
+                        if (raw != null)
                         {
-                            retVal = true;
+                            return Convert.ToInt32(raw) == 1;
                         }
-                        else
-                        {
-                            retVal = false;
-                        }
-                    }
-                    else
-                    {
-                        retVal = false;
                     }
                 }
+                // TaskbarAl is absent (seen on some Windows 11 builds/images): fall back to the OS
+                // default. Windows 11 defaults to a centred taskbar, Windows 10 to left-aligned.
+                return Environment.OSVersion.Version.Build >= 21996;
             }
             catch (Exception)
             {
                 return false;
             }
-            return retVal;
         }
 
         /// <summary>
@@ -203,27 +196,98 @@ namespace RoundedTB
             {
                 IntPtr mainRegion;
                 IntPtr workingRegion = LocalPInvoke.CreateRoundRectRgn(1, 1, 1, 1, 0, 0);
-                int centredDistanceFromEdge = 0;
 
-                // Create an effective region to be applied to the taskbar for the applist
-                Types.EffectiveRegion taskbarEffectiveRegion = new Types.EffectiveRegion
-                {
-                    CornerRadius = Convert.ToInt32(settings.DynamicAppListLayout.CornerRadius * taskbar.ScaleFactor),
-                    Top = Convert.ToInt32(settings.DynamicAppListLayout.MarginTop * taskbar.ScaleFactor),
-                    Left = Convert.ToInt32(settings.DynamicAppListLayout.MarginLeft * taskbar.ScaleFactor),
-                    Width = Convert.ToInt32(taskbar.TaskbarRect.Right - taskbar.TaskbarRect.Left - (settings.DynamicAppListLayout.MarginRight * taskbar.ScaleFactor)) + 1,
-                    Height = Convert.ToInt32(taskbar.TaskbarRect.Bottom - taskbar.TaskbarRect.Top - (settings.DynamicAppListLayout.MarginBottom * taskbar.ScaleFactor)) + 1
-                };
+                int cornerRadius = Convert.ToInt32(settings.DynamicAppListLayout.CornerRadius * taskbar.ScaleFactor);
+                int marginTop = Convert.ToInt32(settings.DynamicAppListLayout.MarginTop * taskbar.ScaleFactor);
+                int marginLeft = Convert.ToInt32(settings.DynamicAppListLayout.MarginLeft * taskbar.ScaleFactor);
+                int marginRight = Convert.ToInt32(settings.DynamicAppListLayout.MarginRight * taskbar.ScaleFactor);
+                int marginBottom = Convert.ToInt32(settings.DynamicAppListLayout.MarginBottom * taskbar.ScaleFactor);
+                int taskbarWidth = taskbar.TaskbarRect.Right - taskbar.TaskbarRect.Left;
+                int taskbarHeight = taskbar.TaskbarRect.Bottom - taskbar.TaskbarRect.Top;
 
-                // Create an effective region to be applied to the taskbar for the applist
-                Types.EffectiveRegion centredEffectiveRegion = new Types.EffectiveRegion
+                // Windows 11 22H2+ renders the taskbar content in a XAML island, so the legacy
+                // app-list window rect (MSTaskSwWClass) no longer reflects where the icons actually
+                // are. That produced two symptoms on modern Windows:
+                //   - the rect started too far right, leaving the empty strip to the left of a
+                //     centred Start button visible, and
+                //   - it ended too far left, clipping every running app that appears to the right
+                //     of the pinned ones.
+                // Derive the true horizontal span of the content via UI Automation instead.
+                int contentLeft, contentRight;
+                if (taskbar.ContentLeft >= 0 && taskbar.ContentRight >= taskbar.ContentLeft)
                 {
-                    CornerRadius = Convert.ToInt32(settings.DynamicAppListLayout.CornerRadius * taskbar.ScaleFactor),
-                    Top = Convert.ToInt32(settings.DynamicAppListLayout.MarginTop * taskbar.ScaleFactor),
-                    Left = Convert.ToInt32(settings.DynamicAppListLayout.MarginRight * taskbar.ScaleFactor) - 1,
-                    Width = Convert.ToInt32(taskbar.TaskbarRect.Right - taskbar.TaskbarRect.Left - (settings.DynamicAppListLayout.MarginRight * taskbar.ScaleFactor)) + 1,
-                    Height = Convert.ToInt32(taskbar.TaskbarRect.Bottom - taskbar.TaskbarRect.Top - (settings.DynamicAppListLayout.MarginBottom * taskbar.ScaleFactor)) + 1
-                };
+                    contentLeft = taskbar.ContentLeft;
+                    contentRight = taskbar.ContentRight;
+                }
+                else if (GetTrueTaskbarContentBounds(taskbar, out contentLeft, out contentRight))
+                {
+                    taskbar.ContentLeft = contentLeft;
+                    taskbar.ContentRight = contentRight;
+                }
+                else
+                {
+                    // Fall back to the legacy window rect when UIA is unavailable (previous behaviour).
+                    contentLeft = taskbar.AppListRect.Left;
+                    contentRight = taskbar.AppListRect.Right;
+                }
+
+                // 结构性约束:应用列表的右边界不应越过托盘左边界(防止溢出/异常的 UIA 值
+                // 导致任务栏右侧偶发多出一段)。
+                if (taskbar.TrayRect.Left > taskbar.TaskbarRect.Left)
+                {
+                    int maxContentRight = taskbar.TrayRect.Left - Convert.ToInt32(1 * taskbar.ScaleFactor);
+                    if (contentRight > maxContentRight)
+                    {
+                        contentRight = maxContentRight;
+                    }
+                    if (contentLeft > contentRight)
+                    {
+                        contentLeft = contentRight - 1;
+                    }
+                }
+
+                // Convert to coordinates relative to the taskbar's own top-left corner (SetWindowRgn space).
+                int cx1 = Math.Max(contentLeft - taskbar.TaskbarRect.Left, 0);
+                int cx2 = Math.Min(contentRight - taskbar.TaskbarRect.Left, taskbarWidth);
+
+                int x1, x2;
+                if (settings.IsCentred)
+                {
+                    // Centred taskbar: the segment hugs the actual content (Start button + apps),
+                    // clipping the empty strips on both sides.
+                    x1 = cx1 - marginLeft;
+                    x2 = cx2 + marginRight;
+                }
+                else
+                {
+                    // Left-aligned taskbar: keep the old left edge (an absolute margin, so negative
+                    // margins still "attach" the taskbar to the screen edge), but derive the right
+                    // edge from the real content so running apps are no longer clipped.
+                    x1 = marginLeft;
+                    x2 = cx2 + marginRight;
+                    if (!settings.IsWindows11)
+                    {
+                        // Extra space for the Windows 10 grab-handle.
+                        x2 += Convert.ToInt32(20 * taskbar.ScaleFactor);
+                    }
+                }
+                if (x1 < 0) x1 = 0;
+                if (x2 > taskbarWidth) x2 = taskbarWidth;
+                if (x2 <= x1)
+                {
+                    // Degenerate bounds (no detectable content) - fall back to a plain rounded taskbar.
+                    x1 = 0;
+                    x2 = taskbarWidth;
+                }
+
+                mainRegion = LocalPInvoke.CreateRoundRectRgn(
+                    x1,
+                    marginTop,
+                    x2 + 1,
+                    taskbarHeight - marginBottom + 1,
+                    cornerRadius,
+                    cornerRadius
+                    );
 
                 // Create an effective region to be applied to the taskbar for the tray
                 Types.EffectiveRegion trayEffectiveRegion = new Types.EffectiveRegion
@@ -243,41 +307,6 @@ namespace RoundedTB
                     Width = Convert.ToInt32(168 * taskbar.ScaleFactor - (settings.DynamicWidgetsLayout.MarginRight * taskbar.ScaleFactor)) + 1,
                     Height = Convert.ToInt32(taskbar.TaskbarRect.Bottom - taskbar.TaskbarRect.Top - (settings.DynamicWidgetsLayout.MarginBottom * taskbar.ScaleFactor)) + 1
                 };
-
-                centredDistanceFromEdge = taskbar.TaskbarRect.Right - taskbar.AppListRect.Right - Convert.ToInt32(2 * taskbar.ScaleFactor);
-
-                // If on Windows 10, add an extra 20 logical pixels for the grabhandle
-                if (!settings.IsWindows11)
-                {
-                    centredDistanceFromEdge -= Convert.ToInt32(20 * taskbar.ScaleFactor);
-                }
-
-                // Create region for if the taskbar is centred by take the right-to-right distance (centredDistanceFromEdge) off from both sides, as well as the margin
-                if (settings.IsCentred)
-                {
-                    mainRegion = LocalPInvoke.CreateRoundRectRgn(
-                        centredDistanceFromEdge + centredEffectiveRegion.Left,
-                        centredEffectiveRegion.Top,
-                        centredEffectiveRegion.Width - centredDistanceFromEdge,
-                        centredEffectiveRegion.Height,
-                        centredEffectiveRegion.CornerRadius,
-                        centredEffectiveRegion.CornerRadius
-                        );
-                }
-
-                // Create a region for if the taskbar is left-aligned, right-to-right distance (centredDistanceFromEdge) off from the right-hand side, as well as the margin
-                else
-                {
-
-                    mainRegion = LocalPInvoke.CreateRoundRectRgn(
-                        taskbarEffectiveRegion.Left,
-                        taskbarEffectiveRegion.Top,
-                        taskbarEffectiveRegion.Width - centredDistanceFromEdge,
-                        taskbarEffectiveRegion.Height,
-                        taskbarEffectiveRegion.CornerRadius,
-                        taskbarEffectiveRegion.CornerRadius
-                        );
-                }
 
                 // If the user has it enabled and the tray handle isn't null, create a region for the system tray and merge it with the taskbar region
                 if (settings.ShowTray && taskbar.TrayHwnd != IntPtr.Zero)
@@ -568,6 +597,67 @@ namespace RoundedTB
             }
 
             return retVal;
+        }
+
+        /// <summary>
+        /// Gets the real horizontal span of the taskbar's app-list content (Start button, search,
+        /// task view and app buttons) via UI Automation. On Windows 11 22H2+ the content is rendered
+        /// by the taskbar's XAML island and the legacy window rects no longer track it.
+        /// </summary>
+        /// <returns>
+        /// true and the content bounds (screen coordinates) if buttons could be enumerated;
+        /// false if UIA is unavailable or no buttons were found.
+        /// </returns>
+        public static bool GetTrueTaskbarContentBounds(Types.Taskbar taskbar, out int contentLeft, out int contentRight)
+        {
+            contentLeft = -1;
+            contentRight = -1;
+            try
+            {
+                AutomationElement taskbarElement = AutomationElement.FromHandle(taskbar.TaskbarHwnd);
+                if (taskbarElement == null)
+                {
+                    return false;
+                }
+
+                int minLeft = int.MaxValue;
+                int maxRight = int.MinValue;
+                bool found = false;
+                foreach (AutomationElement element in taskbarElement.FindAll(TreeScope.Descendants, System.Windows.Automation.Condition.TrueCondition))
+                {
+                    string automationId;
+                    try { automationId = element.Current.AutomationId; }
+                    catch (Exception) { continue; }
+
+                    // Only the app-list content is relevant; the tray / notify icons are excluded by id.
+                    if (string.IsNullOrEmpty(automationId)) continue;
+                    if (automationId != "StartButton" && automationId != "SearchButton" &&
+                        automationId != "TaskViewButton" && !automationId.StartsWith("Appid:"))
+                    {
+                        continue;
+                    }
+
+                    System.Windows.Rect bounds;
+                    bool offscreen;
+                    try { bounds = element.Current.BoundingRectangle; offscreen = element.Current.IsOffscreen; }
+                    catch (Exception) { continue; }
+                    // 跳过隐藏/溢出(进入溢出菜单)的按钮,避免其位置把内容右边界撑大。
+                    if (offscreen || bounds.Width <= 0 || bounds.Height <= 0) continue;
+
+                    if (bounds.Left < minLeft) minLeft = (int)bounds.Left;
+                    if (bounds.Right > maxRight) maxRight = (int)bounds.Right;
+                    found = true;
+                }
+
+                if (!found) return false;
+                contentLeft = minLeft;
+                contentRight = maxRight;
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
 
         /// <summary>

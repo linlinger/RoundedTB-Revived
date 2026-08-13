@@ -1,5 +1,4 @@
-﻿using IWshRuntimeLibrary;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -23,13 +22,8 @@ namespace RoundedTB
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
-    /// 
-    /// Many thanks to
-    ///  - FloatingMilkshake
-    ///  - cardin
-    ///  - cleverActon0126
-    ///  for your gracious donations! 💖
-    ///  
+    ///
+    /// Maintained by the RoundedTB Revived project.
     /// </summary>
     public partial class MainWindow : Window
     {
@@ -65,6 +59,10 @@ namespace RoundedTB
 
             InitializeComponent();
 
+            // 右上角关闭按钮 = 只隐藏设置窗口,程序继续在托盘运行(对齐 R3.1 / ModernWpf 行为)。
+            // WPFUI 的 TitleBar 关闭按钮走它自己的关闭逻辑,OnClosing 拦不住,必须用 CloseActionOverride。
+            mainTitleBar.CloseActionOverride = (tb, win) => win.Hide();
+
 
             // Check OS build, as behaviours rather-annoyingly differ between Windows 11 and Windows 10
             RegistryKey registryKey = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
@@ -77,8 +75,8 @@ namespace RoundedTB
             {
                 isWindows11 = false;
                 activeSettings.IsWindows11 = false;
-                dynamicCheckBox.Content = "Split mode";
-                fillAltTabCheckBox.Content = "[Unavailable]";
+                dynamicCheckBox.Content = Localization.Get("Menu_SplitMode");
+                fillAltTabCheckBox.Content = Localization.Get("Menu_FillAltTabUnavailable");
             }
 
             // Initialise functions
@@ -125,7 +123,7 @@ namespace RoundedTB
             if (System.IO.File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "RoundedTB.lnk")) && !IsRunningAsUWP())
             {
                 StartupCheckBox.IsChecked = true;
-                ShowMenuItem.Header = "Show RoundedTB";
+                ShowMenuItem.Header = Localization.Get("Menu_Show");
             }
             taskbarThread.WorkerSupportsCancellation = true;
             taskbarThread.WorkerReportsProgress = true;
@@ -199,6 +197,14 @@ namespace RoundedTB
                 }
             }
 
+            // Older config files were saved with a different settings schema (no per-segment
+            // layouts). Default any missing segment layout so the app still applies cleanly
+            // when a user upgrades from an older build.
+            if (activeSettings.SimpleTaskbarLayout == null) activeSettings.SimpleTaskbarLayout = new Types.SegmentSettings { CornerRadius = 7, MarginTop = 3, MarginLeft = 3, MarginRight = 3, MarginBottom = 3 };
+            if (activeSettings.DynamicAppListLayout == null) activeSettings.DynamicAppListLayout = new Types.SegmentSettings { CornerRadius = 7, MarginTop = 3, MarginLeft = 3, MarginRight = 3, MarginBottom = 3 };
+            if (activeSettings.DynamicTrayLayout == null) activeSettings.DynamicTrayLayout = new Types.SegmentSettings { CornerRadius = 7, MarginTop = 3, MarginLeft = 3, MarginRight = 3, MarginBottom = 3 };
+            if (activeSettings.DynamicWidgetsLayout == null) activeSettings.DynamicWidgetsLayout = new Types.SegmentSettings { CornerRadius = 7, MarginTop = 3, MarginLeft = 3, MarginRight = 3, MarginBottom = 3 };
+
             if (version != activeSettings.Version && version != -1)
             {
                 activeSettings.IsNotFirstLaunch = false;
@@ -247,30 +253,11 @@ namespace RoundedTB
                 selectedSegment = 0;
             }
 
-            // Get whether or not taskbar is centred
-            try
-            {
-                using (RegistryKey key = Registry.CurrentUser.OpenSubKey("Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced"))
-                {
-                    if (key != null)
-                    {
-                        int val = (int)key.GetValue("TaskbarAl");
-                        if (val == 1)
-                        {
-                            isCentred = true;
-                        }
-                        else
-                        {
-                            isCentred = false;
-                        }
-                        interaction.AddLog($"Taskbar centred? {isCentred}");
-                    }
-                }
-            }
-            catch (Exception aaaa)
-            {
-                interaction.AddLog(aaaa.Message);
-            }
+            // Get whether or not the taskbar is centred.
+            // (The "TaskbarAl" registry value may be absent on some Windows 11 builds/images;
+            // CheckIfCentred falls back to the OS default - centred on Win11 - in that case.)
+            isCentred = Taskbar.CheckIfCentred();
+            interaction.AddLog($"Taskbar centred? {isCentred}");
             if (!isWindows11)
             {
                 activeSettings.IsCentred = false;
@@ -321,7 +308,7 @@ namespace RoundedTB
                 {
 
                 }
-                ShowMenuItem.Header = "Hide RoundedTB";
+                ShowMenuItem.Header = Localization.Get("Menu_Hide");
             }
 
             AutoHide(true, taskbarDetails);
@@ -425,19 +412,40 @@ namespace RoundedTB
 
         public void TrayIconCheck()
         {
-            
-            Uri resLight = new("pack://application:,,,/res/traylight.ico");
-            Uri resDark = new("pack://application:,,,/res/traydark.ico");
-            WPFUI.Theme.Style style = WPFUI.Theme.Manager.GetSystemTheme();
+            try
+            {
+                // 图标文件:traylight.ico 实际是黑色图标(亮色任务栏可见),traydark.ico 实际是白色图标(暗色任务栏可见)。
+                // 对齐原版 R3.1 行为:亮色主题 → 黑图标,暗色主题 → 白图标。
+                // 判断依据用注册表 AppsUseLightTheme(1=亮/0=暗),因为 WPFUI 的
+                // Theme.Manager.GetSystemTheme() 实测与系统相反(暗色系统返回 Light),不可靠。
+                bool light = false;
+                try
+                {
+                    using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"))
+                    {
+                        object val = key?.GetValue("AppsUseLightTheme");
+                        if (val != null)
+                        {
+                            light = Convert.ToInt32(val) == 1;
+                        }
+                    }
+                }
+                catch (Exception)
+                {
+                    // 读不到注册表时按暗色处理(保持默认白色图标)。
+                }
 
-            //if (style == WPFUI.Theme.Style.Light)
-            //{
-            //    mainTitleBar.NotifyIconImage = new System.Windows.Media.Imaging.BitmapImage(resLight);
-            //}
-            //else
-            //{
-            //    mainTitleBar.NotifyIconImage = new System.Windows.Media.Imaging.BitmapImage(resDark);
-            //}
+                Uri resLight = new("pack://application:,,,/res/traylight.ico");
+                Uri resDark = new("pack://application:,,,/res/traydark.ico");
+                System.Windows.Media.Imaging.BitmapImage icon = light
+                    ? new System.Windows.Media.Imaging.BitmapImage(resLight)
+                    : new System.Windows.Media.Imaging.BitmapImage(resDark);
+                mainTitleBar.NotifyIconImage = icon;
+            }
+            catch (Exception)
+            {
+                // 设置失败时保持默认图标,不影响主功能。
+            }
         }
 
 
@@ -528,7 +536,7 @@ namespace RoundedTB
             {
                 e.Cancel = true;
                 Visibility = Visibility.Hidden;
-                ShowMenuItem.Header = "Show RoundedTB";
+                ShowMenuItem.Header = Localization.Get("Menu_Show");
             }
             else
             {
@@ -571,14 +579,9 @@ namespace RoundedTB
             }
         }
 
-        private void CloseMenuItem_Click(object sender, RoutedEventArgs e)
+        private void ExitMenuItem_Click(object sender, RoutedEventArgs e)
         {
-            // Close any popups - leave main window for now
-            for (int windowCount = App.Current.Windows.Count - 1; windowCount >= 0; windowCount--)
-            {
-                App.Current.Windows[windowCount].Close();
-            }
-            
+            // 唯一真正退出程序的入口:关闭设置窗口/About 等不应退出(它们走 OnClosing 的隐藏分支)。
             shouldReallyDieNoReally = true;
 
             Close();
@@ -589,7 +592,7 @@ namespace RoundedTB
             if (IsVisible == false)
             {
                 Visibility = Visibility.Visible;
-                ShowMenuItem.Header = "Hide RoundedTB";
+                ShowMenuItem.Header = Localization.Get("Menu_Hide");
             }
             else
             {
@@ -599,7 +602,7 @@ namespace RoundedTB
                     App.Current.Windows[windowCount].Close();
                 }
                 Visibility = Visibility.Hidden;
-                ShowMenuItem.Header = "Show RoundedTB";
+                ShowMenuItem.Header = Localization.Get("Menu_Show");
             }
         }
 
@@ -633,9 +636,13 @@ namespace RoundedTB
                 {
                     Directory.CreateDirectory(shortcutFolder);
                 }
-                WshShell shellClass = new WshShell();
                 string rtbStartupLink = Path.Combine(shortcutFolder, "RoundedTB.lnk");
-                IWshShortcut shortcut = (IWshShortcut)shellClass.CreateShortcut(rtbStartupLink);
+                // Create the shortcut via the WScript.Shell COM object, called through late-bound
+                // "dynamic" so we don't need a design-time COM reference (the .NET Core MSBuild
+                // cannot resolve COM references - see MSB4803). Behaviour is identical to the old
+                // WshShell/IWshShortcut code.
+                dynamic shellClass = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell"));
+                dynamic shortcut = shellClass.CreateShortcut(rtbStartupLink);
                 shortcut.TargetPath = Environment.GetCommandLineArgs()[0];
                 shortcut.IconLocation = Environment.GetCommandLineArgs()[0];
                 shortcut.Arguments = "";
@@ -687,9 +694,9 @@ namespace RoundedTB
                     if (clean)
                     {
                         Visibility = Visibility.Visible;
-                        ShowMenuItem.Header = "Hide RoundedTB";
+                        ShowMenuItem.Header = Localization.Get("Menu_Hide");
                     }
-                    StartupCheckBox.Content = "Run at startup";
+                    StartupCheckBox.Content = Localization.Get("Menu_RunAtStartup");
                     break;
 
                 case StartupTaskState.DisabledByUser:
@@ -698,9 +705,9 @@ namespace RoundedTB
                     if (clean)
                     {
                         Visibility = Visibility.Visible;
-                        ShowMenuItem.Header = "Hide RoundedTB";
+                        ShowMenuItem.Header = Localization.Get("Menu_Hide");
                     }
-                    StartupCheckBox.Content = "Startup unavailable";
+                    StartupCheckBox.Content = Localization.Get("Menu_StartupUnavailable");
                     break;
 
                 case StartupTaskState.EnabledByPolicy:
@@ -709,9 +716,9 @@ namespace RoundedTB
                     if (clean)
                     {
                         Visibility = Visibility.Hidden;
-                        ShowMenuItem.Header = "Show RoundedTB";
+                        ShowMenuItem.Header = Localization.Get("Menu_Show");
                     }
-                    StartupCheckBox.Content = "Startup mandatory";
+                    StartupCheckBox.Content = Localization.Get("Menu_StartupMandatory");
                     break;
 
                 case StartupTaskState.DisabledByPolicy:
@@ -720,9 +727,9 @@ namespace RoundedTB
                     if (clean)
                     {
                         Visibility = Visibility.Visible;
-                        ShowMenuItem.Header = "Hide RoundedTB";
+                        ShowMenuItem.Header = Localization.Get("Menu_Hide");
                     }
-                    StartupCheckBox.Content = "Startup unavailable";
+                    StartupCheckBox.Content = Localization.Get("Menu_StartupUnavailable");
                     break;
 
                 case StartupTaskState.Enabled:
@@ -731,9 +738,9 @@ namespace RoundedTB
                     if (clean)
                     {
                         Visibility = Visibility.Hidden;
-                        ShowMenuItem.Header = "Show RoundedTB";
+                        ShowMenuItem.Header = Localization.Get("Menu_Show");
                     }
-                    StartupCheckBox.Content = "Run at startup";
+                    StartupCheckBox.Content = Localization.Get("Menu_RunAtStartup");
                     break;
             }
         }
@@ -867,9 +874,9 @@ namespace RoundedTB
         private void splitHelpButton_Click(object sender, RoutedEventArgs e)
         {
             Infobox ib = new Infobox();
-            ib.Title = "RoundedTB - Split mode configuration";
-            ib.titleBlock.Text = "How to use Split Mode";
-            ib.bodyBlock.Text = "Split mode has a couple of limitations and requires a small amount of setup to get working properly.\n\nLimitations:\n1) Split mode doesn't resize itself automatically. This feature will be coming to RoundedTB for Windows 10 in the future.\n2) Toolbars are not compatible with split mode currently, and will need to be disabled apart from one (more on that in a moment).\n3) Split mode only works when the taskbar is horizontal at the top or bottom of the screen.\n\nSetup:\n1) Right-click the taskbar and disable \"Lock the taskbar\".\n2) Right-click it again and turn off any existing toolbars.\n3) Right-click a third time, select Toolbars > Desktop.\n4) Use the small || handle to resize the taskbar as you please.";
+            ib.Title = Localization.Get("Help_SplitTitle");
+            ib.titleBlock.Text = Localization.Get("Help_SplitHeader");
+            ib.bodyBlock.Text = Localization.Get("Help_SplitBody");
             ib.ShowDialog();
         }
 
@@ -879,9 +886,9 @@ namespace RoundedTB
             {
                 Infobox ib = new Infobox();
                 ib.Height = 450;
-                ib.Title = "RoundedTB - TranslucentTB compatibility";
-                ib.titleBlock.Text = "Compatibility with TranslucentTB";
-                ib.bodyBlock.Text = "\nTranslucentTB is a utility that allows you to customise the opacity, blur and colour of the taskbar seamlessly with significantly finer control than other tools. Enable this option to allow RoundedTB and TranslucentTB to work together.\n\nThis is necessary due to a bug in Windows (it's not the fault of RoundedTB or TranslucentTB), and you might encounter some minor flickering when the taskbar \"updates\" (changes size, roundness or position). This is usually pretty minimal and many people use RoundedTB and TranslucentTB in tandem without complaint, but if it bothers you then I recommend sticking with either RoundedTB or TranslucentTB until a better solution is available.\n\nRegardless though, go show TranslucentTB some love! It's the OG Windows 10 aesthetic taskbar mod, the first one on the Microsoft Store and the project that inspired me to make RoundedTB. Plus, the dev is pretty awesome 💖";
+                ib.Title = Localization.Get("Help_CompatTitle");
+                ib.titleBlock.Text = Localization.Get("Help_CompatHeader");
+                ib.bodyBlock.Text = Localization.Get("Help_CompatBody");
                 ib.ShowDialog();
             }
         }
