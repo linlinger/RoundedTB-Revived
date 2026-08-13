@@ -58,6 +58,17 @@
     pre-3.0 迁移(`CornerRadius`/`MarginBasic`/`ShowTrayOnHover`)。
   - worker 循环不静默死:catch 扩到 Exception + `RunWorkerCompleted` 重启(限频 5 次/分)。
   - Explorer 崩溃时任务栏重建指数退避(100ms→5s),托盘提示降级状态。
+- **R4.1 批次(2026-08-14,代码注释盘点 + AutoHide/TranslucentTB 冲突修复)**:
+  - AutoHide:两个 Update*Taskbar 恢复 `WS_EX_LAYERED`(修复"最大化一次后淡出永久失效");2px
+    唤醒区支持顶部停靠;移除从未实现的 AutoHide 第三项占位(`AutoHide=2` 读入 clamp 为 1)。
+  - TranslucentTB:基于 TTB v4 源码,`UpdateTranslucentTB` 三道保护(TTB 未运行 / Win11 no-op /
+    AutoHide 淡出动画中抑制),修掉 Win10 上 force-refresh 造成的拉锯闪烁;`IsWindows11()` 改 static。
+  - 死代码清理:删 TaskbarEffect、IAppVisibility、AppBars、MonitorStuff 文件 + IsOdd/
+    UpdateLegacyTB/DebugMenuItem/OnSourceInitialized 调试打印(Win+F2 热键保留)+
+    Types.TaskbarEffectWindow + Taskbar.cs 注释死代码。
+  - csproj:移除 Compatibility/UpgradeAssistant/PInvoke.User32/DataSetExtensions/Hardcodet 包 +
+    Remote Debug Z:\ 路径 + ClickOnce 残留;构建 0 错误(SC 体积降幅有限,主因是 runtime)。
+  - Interaction/Background 构造器改显式注入 `MainWindow`,消除原版 TODO 空 catch(mw 不再静默 null)。
 
 ## 已知问题 / 待接手(低优先级)
 
@@ -106,12 +117,15 @@
 - [x] **self-contained 发布** — 已随 R4 pre-release 附
   `RoundedTB-R4-win-x64-selfcontained.zip`(内置 runtime,双击即用)。
 - [ ] **R4 后续(2026-08-14 发布后)**:
+  - [x] **移除 csproj 的 `Microsoft.Windows.Compatibility` 包** — 已移除(连同
+    UpgradeAssistant 分析器/PInvoke.User32/DataSetExtensions/Hardcodet/Remote Debug 路径),
+    构建 0 错误。注:SC 体积主因是 .NET runtime 本身,降幅有限(目录 239M→226M),非该包主导。
+  - [x] **代码注释中的 TODO/已知问题盘点** — 已完成:死代码清理(TaskbarEffect/
+    IAppVisibility/AppBars/MonitorStuff/IsOdd/UpdateLegacyTB/DebugMenuItem/调试打印)、
+    Interaction 构造器注入 mw(消除原版 TODO 空 catch)。
+  - [x] **AutoHide(隐藏任务栏)冲突梳理** — 已完成:WS_EX_LAYERED 恢复(ResetTaskbar 后)、
+    顶部任务栏 2px 边缘、移除未实现占位项、TranslucentTB force-refresh 抑制(基于 TTB v4 源码)。
   - [ ] **26H1 实测确认** → 把 R4 pre-release 转正式版(去掉 pre-release 标记)。
-  - [ ] **移除 csproj 的 `Microsoft.Windows.Compatibility` 包**(引入大量 System.* dll,
-    self-contained 80MB→~40MB);移除后需验证编译无缺 API(项目实际只用
-    PInvoke/WinForms/UIA,大概率可安全移除)。
-  - [ ] **代码注释中的 TODO/已知问题盘点**(见计划模式梳理的产出)。
-  - [ ] **AutoHide(隐藏任务栏)冲突梳理**(动态模式/悬停/TranslucentTB 交互,见计划模式)。
 - [ ] i18n 进一步完善(语言切换 UI、新增语言自动识别)——已实施基础保留,整体待规划。
 - [ ] 分段隐藏不同任务栏段(用户明确本轮不做)。
 - [ ] 启动闪窗(低优先级,见上)。
