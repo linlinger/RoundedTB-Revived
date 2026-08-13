@@ -188,10 +188,10 @@ namespace RoundedTB
             {
                 return new Types.Settings()
                 {
-                    SimpleTaskbarLayout = new Types.SegmentSettings { CornerRadius = 7, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
-                    DynamicAppListLayout = new Types.SegmentSettings { CornerRadius = 7, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
-                    DynamicTrayLayout = new Types.SegmentSettings { CornerRadius = 7, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
-                    DynamicWidgetsLayout = new Types.SegmentSettings { CornerRadius = 7, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
+                    SimpleTaskbarLayout = new Types.SegmentSettings { CornerRadius = 8, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
+                    DynamicAppListLayout = new Types.SegmentSettings { CornerRadius = 8, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
+                    DynamicTrayLayout = new Types.SegmentSettings { CornerRadius = 8, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
+                    DynamicWidgetsLayout = new Types.SegmentSettings { CornerRadius = 8, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
                     IsDynamic = false,
                     IsCentred = false,
                     IsWindows11 = true,

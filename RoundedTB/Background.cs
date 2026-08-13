@@ -317,8 +317,12 @@ namespace RoundedTB
                                         LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 63, LocalPInvoke.LWA_ALPHA);
                                         System.Threading.Thread.Sleep(animSpeed);
                                         LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 1, LocalPInvoke.LWA_ALPHA);
+                                        // 淡出完成后移除 WS_EX_TRANSPARENT:该样式让鼠标事件穿透任务栏窗口,
+                                        // OS 的 ABM 自动隐藏就收不到"鼠标靠边"信号、任务栏滑不回来,导致
+                                        // 桌面/非全屏下唤不醒(AutoHide 唤醒 bug 根因)。保留 alpha=1 透明但
+                                        // 恢复命中测试,OS 才能检测到鼠标在边缘并滑回任务栏。
                                         int style = LocalPInvoke.GetWindowLong(taskbars[current].TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE).ToInt32();
-                                        if ((style & LocalPInvoke.WS_EX_TRANSPARENT) != LocalPInvoke.WS_EX_TRANSPARENT)
+                                        if ((style & LocalPInvoke.WS_EX_TRANSPARENT) == LocalPInvoke.WS_EX_TRANSPARENT)
                                         {
                                             LocalPInvoke.SetWindowLong(taskbars[current].TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE, LocalPInvoke.GetWindowLong(taskbars[current].TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE).ToInt32() ^ LocalPInvoke.WS_EX_TRANSPARENT);
                                         }

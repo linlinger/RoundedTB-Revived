@@ -8,7 +8,7 @@ using System.Windows;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("RoundedTB Revived")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyDescription("RoundedTB Revived")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
 [assembly: AssemblyProduct("RoundedTB Revived")]

@@ -175,10 +175,10 @@ namespace RoundedTB
                 {
                     activeSettings = new Types.Settings()
                     {
-                        SimpleTaskbarLayout = new Types.SegmentSettings{ CornerRadius = 7, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
-                        DynamicAppListLayout = new Types.SegmentSettings { CornerRadius = 7, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
-                        DynamicTrayLayout = new Types.SegmentSettings { CornerRadius = 7, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
-                        DynamicWidgetsLayout = new Types.SegmentSettings { CornerRadius = 7, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
+                        SimpleTaskbarLayout = new Types.SegmentSettings{ CornerRadius = 8, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
+                        DynamicAppListLayout = new Types.SegmentSettings { CornerRadius = 8, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
+                        DynamicTrayLayout = new Types.SegmentSettings { CornerRadius = 8, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
+                        DynamicWidgetsLayout = new Types.SegmentSettings { CornerRadius = 8, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
                         IsDynamic = false,
                         IsCentred = false,
                         IsWindows11 = true,
@@ -218,10 +218,10 @@ namespace RoundedTB
             // Older config files were saved with a different settings schema (no per-segment
             // layouts). Default any missing segment layout so the app still applies cleanly
             // when a user upgrades from an older build.
-            if (activeSettings.SimpleTaskbarLayout == null) activeSettings.SimpleTaskbarLayout = new Types.SegmentSettings { CornerRadius = 7, MarginTop = 3, MarginLeft = 3, MarginRight = 3, MarginBottom = 3 };
-            if (activeSettings.DynamicAppListLayout == null) activeSettings.DynamicAppListLayout = new Types.SegmentSettings { CornerRadius = 7, MarginTop = 3, MarginLeft = 3, MarginRight = 3, MarginBottom = 3 };
-            if (activeSettings.DynamicTrayLayout == null) activeSettings.DynamicTrayLayout = new Types.SegmentSettings { CornerRadius = 7, MarginTop = 3, MarginLeft = 3, MarginRight = 3, MarginBottom = 3 };
-            if (activeSettings.DynamicWidgetsLayout == null) activeSettings.DynamicWidgetsLayout = new Types.SegmentSettings { CornerRadius = 7, MarginTop = 3, MarginLeft = 3, MarginRight = 3, MarginBottom = 3 };
+            if (activeSettings.SimpleTaskbarLayout == null) activeSettings.SimpleTaskbarLayout = new Types.SegmentSettings { CornerRadius = 8, MarginTop = 3, MarginLeft = 3, MarginRight = 3, MarginBottom = 3 };
+            if (activeSettings.DynamicAppListLayout == null) activeSettings.DynamicAppListLayout = new Types.SegmentSettings { CornerRadius = 8, MarginTop = 3, MarginLeft = 3, MarginRight = 3, MarginBottom = 3 };
+            if (activeSettings.DynamicTrayLayout == null) activeSettings.DynamicTrayLayout = new Types.SegmentSettings { CornerRadius = 8, MarginTop = 3, MarginLeft = 3, MarginRight = 3, MarginBottom = 3 };
+            if (activeSettings.DynamicWidgetsLayout == null) activeSettings.DynamicWidgetsLayout = new Types.SegmentSettings { CornerRadius = 8, MarginTop = 3, MarginLeft = 3, MarginRight = 3, MarginBottom = 3 };
 
             if (version != activeSettings.Version && version != -1)
             {
@@ -537,6 +537,35 @@ namespace RoundedTB
         }
 
         /// <summary>
+        /// 还原为默认设置(圆角与 Windows 11 窗口圆角一致,8px),填回输入控件后应用并保存。
+        /// 入口:设置界面"还原默认设置"按钮 + 托盘右键菜单项。
+        /// </summary>
+        private void ResetToDefaults_Click(object sender, RoutedEventArgs e)
+        {
+            activeSettings = Interaction.CreateDefaultSettings(isWindows11);
+            activeSettings.IsWindows11 = isWindows11;
+            activeSettings.Version = version;
+
+            // UpdateUi 只更新预览矩形,这里手动把默认值填回输入控件
+            cornerRadiusInput.Text = activeSettings.SimpleTaskbarLayout.CornerRadius.ToString();
+            cornerRadiusSlider.Value = activeSettings.SimpleTaskbarLayout.CornerRadius;
+            mTopInput.Text = activeSettings.SimpleTaskbarLayout.MarginTop.ToString();
+            mLeftInput.Text = activeSettings.SimpleTaskbarLayout.MarginLeft.ToString();
+            mBottomInput.Text = activeSettings.SimpleTaskbarLayout.MarginBottom.ToString();
+            mRightInput.Text = activeSettings.SimpleTaskbarLayout.MarginRight.ToString();
+            autoHideComboBox.SelectedIndex = activeSettings.AutoHide;
+            dynamicCheckBox.IsChecked = activeSettings.IsDynamic;
+            showTrayCheckBox.IsChecked = activeSettings.ShowTray;
+            showWidgetsCheckBox.IsChecked = activeSettings.ShowWidgets;
+            compositionFixCheckBox.IsChecked = activeSettings.CompositionCompat;
+            fillMaximisedCheckBox.IsChecked = activeSettings.FillOnMaximise;
+            fillAltTabCheckBox.IsChecked = activeSettings.FillOnTaskSwitch;
+            showSegmentsOnHoverCheckBox.IsChecked = activeSettings.ShowSegmentsOnHover;
+
+            ApplyButton_Click(null, null);
+        }
+
+        /// <summary>
         /// Starts the taskbar worker, remembering its arguments so it can be restarted after a fault.
         /// </summary>
         private void StartTaskbarWorker(object arguments)
@@ -736,10 +765,13 @@ namespace RoundedTB
                 // WshShell/IWshShortcut code.
                 dynamic shellClass = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell"));
                 dynamic shortcut = shellClass.CreateShortcut(rtbStartupLink);
-                shortcut.TargetPath = Environment.GetCommandLineArgs()[0];
-                shortcut.IconLocation = Environment.GetCommandLineArgs()[0];
+                // 用 Environment.ProcessPath(当前进程的 exe 路径)而不是 GetCommandLineArgs()[0]:
+                // 后者在部分启动方式下返回 dll 路径,导致任务管理器把启动项显示成 "RoundedTB.dll"。
+                string exePath = Environment.ProcessPath ?? Environment.GetCommandLineArgs()[0];
+                shortcut.TargetPath = exePath;
+                shortcut.IconLocation = exePath;
                 shortcut.Arguments = "";
-                shortcut.Description = "Start RoundedTB";
+                shortcut.Description = "RoundedTB Revived";
                 shortcut.Save();
             }
             catch (Exception)
