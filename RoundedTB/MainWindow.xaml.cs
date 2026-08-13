@@ -370,21 +370,23 @@ namespace RoundedTB
 
         public void AutoHide(bool enabled, List<Types.Taskbar> taskbarDetails)
         {
-            // "自动隐藏任务栏"设置:启用时用 Windows 原生 appbar 自动隐藏(任务栏收起,
-            // 鼠标移到底部边缘才浮现);禁用时恢复正常显示。
+            // "自动隐藏任务栏"设置:只有配置开启了自动隐藏(AutoHide>0)才设置 autohide;
+            // 否则始终确保任务栏显示(取消可能残留的 autohide 状态)。
+            // 注意:MainWindow 构造末尾会无条件调用 AutoHide(true),所以绝不能在这里
+            // 对"配置未开启自动隐藏"的情况也设置 autohide,否则启动时任务栏会被自动收起。
             try
             {
                 foreach (Types.Taskbar taskbar in taskbarDetails)
                 {
-                    if (enabled)
+                    if (activeSettings.AutoHide > 0)
                     {
-                        Taskbar.SetTaskbarState(LocalPInvoke.AppBarStates.AutoHide, taskbar.TaskbarHwnd);
+                        // 启用:设 autohide;取消(退出时):清空 autohide/always-on-top。
+                        // ABM_SETSTATE 的 lParam 是"要设置的 ABS 标志",设 0 表示恢复正常显示。
+                        Taskbar.SetTaskbarState(enabled ? LocalPInvoke.AppBarStates.AutoHide : (LocalPInvoke.AppBarStates)0, taskbar.TaskbarHwnd);
                     }
                     else
                     {
-                        // 取消自动隐藏:ABM_SETSTATE 的 lParam 是"要设置的 ABS 标志",设 0 表示
-                        // 取消 autohide 和 always-on-top(恢复正常显示)。只设 AlwaysOnTop 不能
-                        // 清除之前设置的 autohide 位,会导致任务栏一直处于自动收起状态。
+                        // 配置没开自动隐藏:始终确保任务栏显示。
                         Taskbar.SetTaskbarState((LocalPInvoke.AppBarStates)0, taskbar.TaskbarHwnd);
                     }
                 }
