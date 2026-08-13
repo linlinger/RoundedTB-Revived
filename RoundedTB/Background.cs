@@ -14,6 +14,7 @@ namespace RoundedTB
         public MainWindow mw;
         bool redrawOverride = false;
         int infrequentCount = 0;
+        int loopLogCount = 0; // [DEBUG] 节流状态日志计数
 
         public Background()
         {
@@ -138,6 +139,12 @@ namespace RoundedTB
                             // Get the latest quick details of this taskbar
                             Types.Taskbar newTaskbar = Taskbar.GetQuickTaskbarRects(taskbars[current].TaskbarHwnd, taskbars[current].TrayHwnd, taskbars[current].AppListHwnd);
 
+                            // [DEBUG] 每 10 帧输出一次主循环状态,用于定位悬停/最大化恢复不工作
+                            if (loopLogCount++ % 10 == 0)
+                            {
+                                mw.interaction.AddLog($"bw[{current}]: segHover={settings.ShowSegmentsOnHover} trayLeft={taskbars[current].TrayRect.Left} trayRect=({taskbars[current].TrayRect.Left},{taskbars[current].TrayRect.Top})-({taskbars[current].TrayRect.Right},{taskbars[current].TrayRect.Bottom}) dyn={settings.IsDynamic} fill={Taskbar.TaskbarShouldBeFilled(taskbars[current].TaskbarHwnd, settings)}");
+                            }
+
 
                             // If the taskbar's monitor has a maximised window, reset it so it's "filled"
                             if (Taskbar.TaskbarShouldBeFilled(taskbars[current].TaskbarHwnd, settings))
@@ -162,6 +169,8 @@ namespace RoundedTB
                                     LocalPInvoke.GetCursorPos(out LocalPInvoke.POINT msPt);
                                     bool isHoveringOverTray = LocalPInvoke.PtInRect(ref currentTrayRect, msPt);
                                     bool isHoveringOverWidgets = LocalPInvoke.PtInRect(ref currentWidgetsRect, msPt);
+                                    // [DEBUG] hover 诊断
+                                    mw.interaction.AddLog($"hover: tray=({currentTrayRect.Left},{currentTrayRect.Top})-({currentTrayRect.Right},{currentTrayRect.Bottom}) mouse=({msPt.x},{msPt.y}) hoverTray={isHoveringOverTray} ShowTray={settings.ShowTray} dyn={settings.IsDynamic}");
                                     if (isHoveringOverTray && !settings.ShowTray)
                                     {
                                         settings.ShowTray = true;

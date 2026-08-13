@@ -128,8 +128,17 @@ namespace RoundedTB
 
         public void AddLog(string message)
         {
-            //m = $"[{DateTime.Now}] {message}\n";
-            //File.AppendAllText(mw.logPath, m);
+            try
+            {
+                if (mw != null && !string.IsNullOrEmpty(mw.logPath))
+                {
+                    File.AppendAllText(mw.logPath, $"[{DateTime.Now:HH:mm:ss.fff}] {message}\n");
+                }
+            }
+            catch (Exception)
+            {
+                // 日志失败不影响主功能
+            }
         }
 
         public static bool IsTranslucentTBRunning()

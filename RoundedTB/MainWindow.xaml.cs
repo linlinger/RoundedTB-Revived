@@ -370,53 +370,25 @@ namespace RoundedTB
 
         public void AutoHide(bool enabled, List<Types.Taskbar> taskbarDetails)
         {
-            int workingHeight = Screen.PrimaryScreen.WorkingArea.Height;
-            int boundsHeight = Screen.PrimaryScreen.Bounds.Height;
-            int taskbarHeight = taskbarDetails[0].TaskbarRect.Bottom - taskbarDetails[0].TaskbarRect.Top;
-            bool workAreaMisconfigured = false;
-
-            if (boundsHeight - taskbarHeight > workingHeight)
-            {
-                workAreaMisconfigured = true;
-            }
-
-            if (activeSettings.AutoHide > 0 && enabled)
-            {
-                MonitorStuff.DisplayInfoCollection Displays = MonitorStuff.GetDisplays();
-
-                foreach (MonitorStuff.DisplayInfo display in Displays)
-                {
-                    LocalPInvoke.RECT workArea = display.MonitorArea;
-                    workArea.Bottom = workArea.Bottom - 2;
-                    Interaction.SetWorkspace(workArea);
-                }
-                foreach (Types.Taskbar taskbar in taskbarDetails)
-                {
-                    LocalPInvoke.SetWindowPos(taskbar.TaskbarHwnd, new IntPtr(-1), 0, 0, 0, 0, LocalPInvoke.SetWindowPosFlags.IgnoreMove | LocalPInvoke.SetWindowPosFlags.IgnoreResize);
-                    Taskbar.SetTaskbarState(LocalPInvoke.AppBarStates.AlwaysOnTop, taskbar.TaskbarHwnd);
-                }
-            }
-            else if (!enabled)
+            // "自动隐藏任务栏"设置:启用时用 Windows 原生 appbar 自动隐藏(任务栏收起,
+            // 鼠标移到底部边缘才浮现);禁用时恢复正常显示。
+            try
             {
                 foreach (Types.Taskbar taskbar in taskbarDetails)
                 {
-                    LocalPInvoke.SetWindowPos(taskbar.TaskbarHwnd, new IntPtr(-1), 0, 0, 0, 0, LocalPInvoke.SetWindowPosFlags.IgnoreMove | LocalPInvoke.SetWindowPosFlags.IgnoreResize);
-                    if (workAreaMisconfigured)
+                    if (enabled)
                     {
                         Taskbar.SetTaskbarState(LocalPInvoke.AppBarStates.AutoHide, taskbar.TaskbarHwnd);
+                    }
+                    else
+                    {
                         Taskbar.SetTaskbarState(LocalPInvoke.AppBarStates.AlwaysOnTop, taskbar.TaskbarHwnd);
                     }
-
-                    MonitorStuff.DisplayInfoCollection Displays = MonitorStuff.GetDisplays();
-
-                    foreach (MonitorStuff.DisplayInfo display in Displays)
-                    {
-                        taskbarHeight = taskbar.TaskbarRect.Bottom - taskbar.TaskbarRect.Top;
-                        LocalPInvoke.RECT workArea = display.MonitorArea;
-                        workArea.Bottom = workArea.Bottom - taskbarHeight;
-                        Interaction.SetWorkspace(workArea);
-                    }
                 }
+            }
+            catch (Exception aaaa)
+            {
+                interaction.AddLog(aaaa.Message);
             }
         }
 

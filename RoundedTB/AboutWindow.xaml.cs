@@ -25,6 +25,15 @@ namespace RoundedTB
         {
             InitializeComponent();
             WPFUI.Background.Manager.Apply(WPFUI.Background.BackgroundType.Mica, this);
+
+            // 关闭按钮 = 只关闭本窗口。TitleBar 设了 ApplicationNavigation=True,默认关闭按钮会
+            // 直接 Application.Shutdown() 退出整个程序,必须覆盖为正常关闭窗口。
+            // 注意:WPFUI 传给 override 的窗口可能是内部 _parent 字段(懒赋值,可能为 null),
+            // 必须防御,否则刚打开就点叉会 NRE 闪退。
+            aboutTitleBar.CloseActionOverride = (tb, win) =>
+            {
+                (win ?? Window.GetWindow(tb) ?? this).Close();
+            };
         }
 
         private void okButton_Click(object sender, RoutedEventArgs e)

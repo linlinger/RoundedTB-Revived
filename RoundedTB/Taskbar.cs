@@ -581,19 +581,16 @@ namespace RoundedTB
 
             if (settings.FillOnMaximise)
             {
-                // Attempt to check for if alt+tab/task switcher is open (Windows 11 only)
-                IntPtr topHwnd = LocalPInvoke.WindowFromPoint(new LocalPInvoke.POINT() { x = 0, y = 0 });
-                StringBuilder windowClass = new StringBuilder(1024);
-                try
+                // Alt+Tab / 任务切换器(Windows 11)检测。
+                // 注意:不能用 WindowFromPoint(0,0) 判断——在 Win11 22H2+ 上桌面上任意位置的
+                // XAML 窗口类名都可能正好是 XamlExplorerHostIslandWindow,会误判为
+                // "Alt+Tab 打开"→ TaskbarShouldBeFilled 恒为 true → 任务栏一直被复位,
+                // 动态分段、悬停显示等全部失效。只有真正覆盖整个任务栏区域的该类窗口
+                // (即 Alt+Tab 全屏界面)才算打开。
+                if (settings.FillOnTaskSwitch && IsAltTabOverlayOpen(taskbarHwnd))
                 {
-                    LocalPInvoke.GetClassName(topHwnd, windowClass, 1024);
-
-                    if (windowClass.ToString() == "XamlExplorerHostIslandWindow" && settings.FillOnTaskSwitch)
-                    {
-                        return true;
-                    }
+                    return true;
                 }
-                catch (Exception) { }
 
                 List<IntPtr> windowList = Interaction.GetTopLevelWindows();
                 foreach (IntPtr windowHwnd in windowList)
@@ -618,6 +615,40 @@ namespace RoundedTB
             }
 
             return retVal;
+        }
+
+        /// <summary>
+        /// 判断 Alt+Tab / 任务切换器是否真的打开:存在一个可见的、覆盖整个任务栏区域的
+        /// XamlExplorerHostIslandWindow(Win11 的 Alt+Tab 界面全屏覆盖,包括任务栏)。
+        /// </summary>
+        private static bool IsAltTabOverlayOpen(IntPtr taskbarHwnd)
+        {
+            try
+            {
+                LocalPInvoke.GetWindowRect(taskbarHwnd, out LocalPInvoke.RECT taskbarRect);
+                List<IntPtr> windows = Interaction.GetTopLevelWindows();
+                foreach (IntPtr hwnd in windows)
+                {
+                    if (!LocalPInvoke.IsWindowVisible(hwnd)) continue;
+
+                    StringBuilder cls = new StringBuilder(1024);
+                    LocalPInvoke.GetClassName(hwnd, cls, 1024);
+                    if (cls.ToString() != "XamlExplorerHostIslandWindow") continue;
+
+                    LocalPInvoke.GetWindowRect(hwnd, out LocalPInvoke.RECT r);
+                    // Alt+Tab 界面必须覆盖任务栏所在区域(全屏)
+                    if (r.Left <= taskbarRect.Left && r.Top <= taskbarRect.Top &&
+                        r.Right >= taskbarRect.Right && r.Bottom >= taskbarRect.Bottom)
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // 检测失败时不视为 Alt+Tab 打开
+            }
+            return false;
         }
 
         /// <summary>
