@@ -592,23 +592,22 @@ namespace RoundedTB
                     return true;
                 }
 
-                List<IntPtr> windowList = Interaction.GetTopLevelWindows();
-                foreach (IntPtr windowHwnd in windowList)
+                // 窗口最大化恢复任务栏:只检查"前台"窗口是否最大化。
+                // 原版枚举所有同监视器窗口——只要有一个后台常驻最大化的窗口(例如终端),
+                // fill 就恒为 true,任务栏一直被复位,动态分段、悬停显示全部失效。
+                IntPtr fg = LocalPInvoke.GetForegroundWindow();
+                if (fg != IntPtr.Zero && LocalPInvoke.IsWindowVisible(fg) &&
+                    LocalPInvoke.MonitorFromWindow(taskbarHwnd, 2) == LocalPInvoke.MonitorFromWindow(fg, 2))
                 {
-                    if (LocalPInvoke.IsWindowVisible(windowHwnd))
+                    LocalPInvoke.DwmGetWindowAttribute(fg, LocalPInvoke.DWMWINDOWATTRIBUTE.Cloaked, out bool isCloaked, 0x4);
+                    if (!isCloaked)
                     {
-                        if (LocalPInvoke.MonitorFromWindow(taskbarHwnd, 2) == LocalPInvoke.MonitorFromWindow(windowHwnd, 2))
+                        LocalPInvoke.WINDOWPLACEMENT lpwndpl = new LocalPInvoke.WINDOWPLACEMENT();
+                        lpwndpl.Length = System.Runtime.InteropServices.Marshal.SizeOf(typeof(LocalPInvoke.WINDOWPLACEMENT));
+                        LocalPInvoke.GetWindowPlacement(fg, ref lpwndpl);
+                        if (lpwndpl.ShowCmd == LocalPInvoke.ShowWindowCommands.ShowMaximized)
                         {
-                            LocalPInvoke.DwmGetWindowAttribute(windowHwnd, LocalPInvoke.DWMWINDOWATTRIBUTE.Cloaked, out bool isCloaked, 0x4);
-                            if (!isCloaked)
-                            {
-                                LocalPInvoke.WINDOWPLACEMENT lpwndpl = new LocalPInvoke.WINDOWPLACEMENT();
-                                LocalPInvoke.GetWindowPlacement(windowHwnd, ref lpwndpl);
-                                if (lpwndpl.ShowCmd == LocalPInvoke.ShowWindowCommands.ShowMaximized)
-                                {
-                                    retVal = true;
-                                }
-                            }
+                            retVal = true;
                         }
                     }
                 }
