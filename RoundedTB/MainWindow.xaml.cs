@@ -43,7 +43,7 @@ namespace RoundedTB
         public Interaction interaction;
         private HwndSource source;
         public int selectedSegment = 0; // 0 = Simple, 1 = AppList, 2 = Tray, 3 = Widgets
-        public int version = -1;
+        public int version = 3; // R4
         private bool _lastTrayLight = false; // 上次托盘图标用的主题(暗色=false/亮色=true),避免每帧重建图标
         // Restart bookkeeping for the taskbar worker. An unhandled exception used to end the
         // loop silently, leaving the app running but doing nothing at all. (移植自 gniang Phase 1)

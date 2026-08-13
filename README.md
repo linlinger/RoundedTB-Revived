@@ -29,13 +29,16 @@ The advanced options allow for further customisation, at the cost of some user-f
 - **TranslucentTB Compatibility** - due to a bug in Windows, apps that alter the composition of the taskbar don't allow RoundedTB Revived's changes to show up automatically. Enabling this option works together with [TranslucentTB](https://github.com/TranslucentTB/TranslucentTB). This is experimental and *will* flicker slightly. It requires TranslucentTB version 2021.5 to function.
 - **About RoundedTB Revived** - provides information about the current version. The "Debug" section lets you open the config and log files.
 
+## Supported systems
+
+- **Windows 11** 22H2+ — dynamic mode; verified on 24H2 (build 26100). Windows 11 26H1 is expected to work and will be confirmed after testing.
+- **Windows 10** (1607+) — split mode.
+
 ## Known issues
- - Auto-hiding is still incredibly experimental and may lead to a lot of flickering, especially with TranslucentTB compatibility or dynamic/split mode enabled.
+ - **Auto-hide**: use the built-in AutoHide option. Enabling Windows' own auto-hide at the same time can cause flicker.
  - Rounded corners are not antialiased due to a Windows limitation.
- - Dynamic mode won't hide the left side of the taskbar if the taskbar alignment has never been changed. This can be worked around by changing the alignment to Left and back to Center.
  - Dynamic mode/split mode only work correctly when the taskbar is horizontal at the top/bottom of the screen.
  - Split mode on Windows 10 only supports the main taskbar, secondary taskbars will not be split.
- - When using dynamic mode, the taskbar may occasionally become too large, too small or not update. This can usually be fixed by moving a window to or from that monitor or briefly changing the taskbar alignment.
  - Compatibility with taskbar mods outside of TranslucentTB version 2021.5 is not currently guaranteed.
 
 ## Credits
