@@ -38,6 +38,14 @@ The advanced options allow for further customisation, at the cost of some user-f
  - When using dynamic mode, the taskbar may occasionally become too large, too small or not update. This can usually be fixed by moving a window to or from that monitor or briefly changing the taskbar alignment.
  - Compatibility with taskbar mods outside of TranslucentTB version 2021.5 is not currently guaranteed.
 
+## Credits
+
+- **torchgm** — original author of [RoundedTB](https://github.com/torchgm/RoundedTB) (GPL v3).
+- **gniang** ([Gniang/RoundedTB](https://github.com/Gniang/RoundedTB)) — several stability fixes in this
+  build are ported from their fork: secondary-taskbar tray geometry, hover-state persistence,
+  atomic settings writes with legacy-config migration, worker-loop recovery, and Explorer-restart
+  backoff. Thank you for the excellent work!
+
 ## Other info
 If anything breaks catastrophically, press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Esc</kbd> to open Task Manager, end RoundedTB Revived and then restart Explorer. At worst, just reboot your PC. RoundedTB Revived makes no permanent changes (though it will run on startup if you enable it from the tray icon), so restarting should clear any issues.
 
