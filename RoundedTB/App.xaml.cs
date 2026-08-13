@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 
@@ -13,8 +14,21 @@ namespace RoundedTB
     /// </summary>
     public partial class App : Application
     {
+        private Mutex _singleInstanceMutex;
+
         protected override void OnStartup(StartupEventArgs e)
         {
+            // 单实例:任务管理器里只允许一个 RoundedTB。已有实例则通知它显示设置窗口,
+            // 本实例直接退出。
+            bool createdNew;
+            _singleInstanceMutex = new Mutex(true, @"RoundedTBRevived_SingleInstance", out createdNew);
+            if (!createdNew)
+            {
+                NotifyExistingInstance();
+                Shutdown();
+                return;
+            }
+
             // 必须在任何窗口创建前加载语言,这样 XAML 里的 {l:Loc ...} 才能取到对应文本。
             Localization.Init();
 
@@ -29,6 +43,35 @@ namespace RoundedTB
             }
 
             WPFUI.Theme.Watcher.Start();
+
+            // 手动创建主窗口(不通过 StartupUri),避免启动瞬间闪过一个窗口;
+            // MainWindow 在 OnSourceInitialized 里会自动隐藏到托盘。
+            new MainWindow();
+        }
+
+        /// <summary>通过窗口标题技巧让已有实例显示设置窗口(与 MainWindow 的单实例逻辑一致)。</summary>
+        private void NotifyExistingInstance()
+        {
+            try
+            {
+                List<IntPtr> windowList = Interaction.GetTopLevelWindows();
+                foreach (IntPtr hwnd in windowList)
+                {
+                    System.Text.StringBuilder windowClass = new System.Text.StringBuilder(1024);
+                    System.Text.StringBuilder windowTitle = new System.Text.StringBuilder(1024);
+                    LocalPInvoke.GetClassName(hwnd, windowClass, 1024);
+                    LocalPInvoke.GetWindowText(hwnd, windowTitle, 1024);
+                    if (windowClass.ToString().Contains("HwndWrapper[RoundedTB.exe") && windowTitle.ToString() == "RoundedTB")
+                    {
+                        LocalPInvoke.SetWindowText(hwnd, "RoundedTB_SettingsRequest");
+                        break;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // 通知失败不影响(已有实例仍在运行)
+            }
         }
     }
 }

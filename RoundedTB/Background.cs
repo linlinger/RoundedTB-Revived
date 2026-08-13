@@ -160,7 +160,13 @@ namespace RoundedTB
                             // Showhide tray on hover
                             if (settings.ShowSegmentsOnHover)
                             {
+                                // TrayNotifyWnd 的窗口矩形在 Win11 22H2+ 上 Y 坐标会偏移(偏下),
+                                // 直接用 GetWindowRect 的值会检测不到鼠标悬停。托盘区的 Y 范围改用
+                                // 任务栏自身的矩形,只取托盘窗口的 X 范围。
                                 LocalPInvoke.RECT currentTrayRect = taskbars[current].TrayRect;
+                                LocalPInvoke.RECT currentTaskbarRect = taskbars[current].TaskbarRect;
+                                currentTrayRect.Top = currentTaskbarRect.Top;
+                                currentTrayRect.Bottom = currentTaskbarRect.Bottom;
                                 LocalPInvoke.RECT currentWidgetsRect = taskbars[current].TaskbarRect;
                                 currentWidgetsRect.Right = Convert.ToInt32(currentWidgetsRect.Right - (currentWidgetsRect.Right - currentWidgetsRect.Left) + (168 * taskbars[current].ScaleFactor));
                                 

@@ -382,7 +382,10 @@ namespace RoundedTB
                     }
                     else
                     {
-                        Taskbar.SetTaskbarState(LocalPInvoke.AppBarStates.AlwaysOnTop, taskbar.TaskbarHwnd);
+                        // 取消自动隐藏:ABM_SETSTATE 的 lParam 是"要设置的 ABS 标志",设 0 表示
+                        // 取消 autohide 和 always-on-top(恢复正常显示)。只设 AlwaysOnTop 不能
+                        // 清除之前设置的 autohide 位,会导致任务栏一直处于自动收起状态。
+                        Taskbar.SetTaskbarState((LocalPInvoke.AppBarStates)0, taskbar.TaskbarHwnd);
                     }
                 }
             }
