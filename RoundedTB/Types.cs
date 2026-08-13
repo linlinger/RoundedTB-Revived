@@ -46,6 +46,15 @@ namespace RoundedTB
             public bool FillOnTaskSwitch {  get; set; }
             public bool ShowSegmentsOnHover { get; set; }
             public int AutoHide { get; set; }
+
+            /// <summary>
+            /// Copy used for transient, non-persisted overrides (e.g. hover state) so that runtime
+            /// tweaks never end up written back to the user's config. (移植自 gniang Phase 1)
+            /// </summary>
+            public Settings ShallowCopy()
+            {
+                return (Settings)MemberwiseClone();
+            }
         }
 
         public class EffectiveRegion

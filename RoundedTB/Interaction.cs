@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -28,11 +29,108 @@ namespace RoundedTB
             }
         }
 
+        /// <summary>
+        /// Value MarginBasic carried in pre-per-segment configs to mean "the four margins below are
+        /// set individually". Any other value applied to all four sides. (移植自 gniang Phase 1)
+        /// </summary>
+        private const int LegacyAdvancedMarginSentinel = -384;
+
+        /// <summary>
+        /// Populating over the defaults rather than deserialising fresh: a key the file doesn't
+        /// mention keeps the value it would have had on a first launch instead of dropping to
+        /// 0/false, and an explicit null doesn't wipe a layout out. (移植自 gniang Phase 1)
+        /// </summary>
+        private static readonly JsonSerializerSettings PopulateOverDefaults = new JsonSerializerSettings
+        {
+            NullValueHandling = NullValueHandling.Ignore,
+            ObjectCreationHandling = ObjectCreationHandling.Auto,
+        };
+
         public Types.Settings ReadJSON()
         {
-            string jsonSettings = File.ReadAllText(mw.configPath);
-            Types.Settings settings = JsonConvert.DeserializeObject<Types.Settings>(jsonSettings);
+            Types.Settings settings = CreateDefaultSettings(mw.isWindows11);
+            JObject rawSettings = null;
+            try
+            {
+                string jsonSettings = File.ReadAllText(mw.configPath);
+                rawSettings = JObject.Parse(jsonSettings);
+                JsonConvert.PopulateObject(jsonSettings, settings, PopulateOverDefaults);
+            }
+            catch (Exception ex)
+            {
+                // An empty or corrupt config file must not prevent the app from starting. Start over
+                // from the defaults, since population may have stopped part-way through.
+                Debug.WriteLine($"Failed to read settings, falling back to defaults: {ex.Message}");
+                AddLog($"Failed to read settings, falling back to defaults: {ex.Message}");
+                settings = CreateDefaultSettings(mw.isWindows11);
+                rawSettings = null;
+            }
+
+            MigrateLegacySettings(settings, rawSettings, mw.isWindows11);
             return settings;
+        }
+
+        /// <summary>
+        /// Carries settings written by older versions of RoundedTB over to the current schema, for
+        /// the cases a straight populate can't express: fields that were renamed or restructured.
+        /// Anything the file has no value for at all is already sitting at its first-launch default.
+        /// (移植自 gniang Phase 1)
+        /// </summary>
+        private void MigrateLegacySettings(Types.Settings settings, JObject raw, bool isWindows11)
+        {
+            if (raw == null)
+            {
+                return;
+            }
+
+            Types.Settings defaults = CreateDefaultSettings(isWindows11);
+
+            // Before the per-segment layouts, one corner radius and one margin set covered the whole
+            // taskbar. Spread those across every segment so the look is preserved.
+            if (raw["SimpleTaskbarLayout"] == null && raw["CornerRadius"] != null)
+            {
+                int cornerRadius = raw.Value<int?>("CornerRadius") ?? defaults.SimpleTaskbarLayout.CornerRadius;
+                int marginBasic = raw.Value<int?>("MarginBasic") ?? LegacyAdvancedMarginSentinel;
+
+                int marginTop, marginLeft, marginRight, marginBottom;
+                if (marginBasic != LegacyAdvancedMarginSentinel)
+                {
+                    marginTop = marginLeft = marginRight = marginBottom = marginBasic;
+                }
+                else
+                {
+                    marginTop = raw.Value<int?>("MarginTop") ?? defaults.SimpleTaskbarLayout.MarginTop;
+                    marginLeft = raw.Value<int?>("MarginLeft") ?? defaults.SimpleTaskbarLayout.MarginLeft;
+                    marginRight = raw.Value<int?>("MarginRight") ?? defaults.SimpleTaskbarLayout.MarginRight;
+                    marginBottom = raw.Value<int?>("MarginBottom") ?? defaults.SimpleTaskbarLayout.MarginBottom;
+                }
+
+                settings.SimpleTaskbarLayout = LegacyLayout(cornerRadius, marginTop, marginLeft, marginRight, marginBottom);
+                settings.DynamicAppListLayout = LegacyLayout(cornerRadius, marginTop, marginLeft, marginRight, marginBottom);
+                settings.DynamicTrayLayout = LegacyLayout(cornerRadius, marginTop, marginLeft, marginRight, marginBottom);
+                settings.DynamicWidgetsLayout = LegacyLayout(cornerRadius, marginTop, marginLeft, marginRight, marginBottom);
+
+                AddLog("Migrated pre-3.0 layout settings.");
+                Debug.WriteLine("Migrated pre-3.0 layout settings");
+            }
+
+            // ShowTrayOnHover was renamed to ShowSegmentsOnHover when widgets gained the same behaviour.
+            if (raw["ShowSegmentsOnHover"] == null && raw["ShowTrayOnHover"] != null)
+            {
+                settings.ShowSegmentsOnHover = raw.Value<bool?>("ShowTrayOnHover") ?? defaults.ShowSegmentsOnHover;
+            }
+        }
+
+        private static Types.SegmentSettings LegacyLayout(int cornerRadius, int top, int left, int right, int bottom)
+        {
+            return new Types.SegmentSettings
+            {
+                CornerRadius = cornerRadius,
+                MarginTop = top,
+                MarginLeft = left,
+                MarginRight = right,
+                MarginBottom = bottom
+            };
         }
 
         public bool IsWindows11()
@@ -55,63 +153,117 @@ namespace RoundedTB
 
         public void WriteJSON()
         {
-            File.Create(mw.configPath).Close();
-            File.WriteAllText(mw.configPath, JsonConvert.SerializeObject(mw.activeSettings, Formatting.Indented));
+            // Write to a temporary file first, then swap it in atomically. Truncating the real config
+            // up front (File.Create) meant a crash mid-write left the user with an empty settings file.
+            // (移植自 gniang Phase 1)
+            string tempPath = mw.configPath + ".tmp";
+            string json = JsonConvert.SerializeObject(mw.activeSettings, Formatting.Indented);
+
+            try
+            {
+                File.WriteAllText(tempPath, json);
+                if (File.Exists(mw.configPath))
+                {
+                    File.Replace(tempPath, mw.configPath, null);
+                }
+                else
+                {
+                    File.Move(tempPath, mw.configPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to write settings: {ex.Message}");
+                AddLog($"Failed to write settings: {ex.Message}");
+                try
+                {
+                    if (File.Exists(tempPath))
+                    {
+                        File.Delete(tempPath);
+                    }
+                }
+                catch (Exception) { }
+            }
+        }
+
+        /// <summary>
+        /// Builds the default settings for the given OS. Used on first launch and when the
+        /// config file turns out to be missing or unreadable. (移植自 gniang Phase 1)
+        /// </summary>
+        public static Types.Settings CreateDefaultSettings(bool isWindows11)
+        {
+            if (isWindows11)
+            {
+                return new Types.Settings()
+                {
+                    SimpleTaskbarLayout = new Types.SegmentSettings { CornerRadius = 7, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
+                    DynamicAppListLayout = new Types.SegmentSettings { CornerRadius = 7, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
+                    DynamicTrayLayout = new Types.SegmentSettings { CornerRadius = 7, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
+                    DynamicWidgetsLayout = new Types.SegmentSettings { CornerRadius = 7, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
+                    IsDynamic = false,
+                    IsCentred = false,
+                    IsWindows11 = true,
+                    ShowTray = false,
+                    ShowWidgets = false,
+                    CompositionCompat = false,
+                    IsNotFirstLaunch = false,
+                    FillOnMaximise = true,
+                    FillOnTaskSwitch = true,
+                    ShowSegmentsOnHover = false,
+                    AutoHide = 0
+                };
+            }
+
+            return new Types.Settings()
+            {
+                SimpleTaskbarLayout = new Types.SegmentSettings { CornerRadius = 16, MarginLeft = 2, MarginTop = 2, MarginRight = 2, MarginBottom = 2 },
+                DynamicAppListLayout = new Types.SegmentSettings { CornerRadius = 16, MarginLeft = 2, MarginTop = 2, MarginRight = 2, MarginBottom = 2 },
+                DynamicTrayLayout = new Types.SegmentSettings { CornerRadius = 16, MarginLeft = 2, MarginTop = 2, MarginRight = 2, MarginBottom = 2 },
+                DynamicWidgetsLayout = new Types.SegmentSettings { CornerRadius = 16, MarginLeft = 2, MarginTop = 2, MarginRight = 2, MarginBottom = 2 },
+                IsDynamic = false,
+                IsCentred = false,
+                IsWindows11 = false,
+                ShowTray = false,
+                ShowWidgets = false,
+                CompositionCompat = false,
+                IsNotFirstLaunch = false,
+                FillOnMaximise = true,
+                FillOnTaskSwitch = false,
+                ShowSegmentsOnHover = false,
+                AutoHide = 0
+            };
         }
 
         public void FileSystem()
         {
-            File.Create(mw.logPath).Close();
-            if (!File.Exists(mw.configPath))
+            // 注:未移植 gniang 的 %LOCALAPPDATA%\RoundedTB\ 配置路径迁移(见 PROGRESS.md TODO),
+            // rtb.json 仍保留在 %LOCALAPPDATA% 根目录,以兼容老版本/降级。等配置 schema 与老版本
+            // 差异变大时再搬。
+
+            try
             {
-                if (mw.isWindows11)
-                {
-                    mw.activeSettings = new Types.Settings()
-                    {
-                        SimpleTaskbarLayout = new Types.SegmentSettings { CornerRadius = 7, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
-                        DynamicAppListLayout = new Types.SegmentSettings { CornerRadius = 7, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
-                        DynamicTrayLayout = new Types.SegmentSettings { CornerRadius = 7, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
-                        DynamicWidgetsLayout = new Types.SegmentSettings { CornerRadius = 7, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
-                        IsDynamic = false,
-                        IsCentred = false,
-                        IsWindows11 = true,
-                        ShowTray = false,
-                        CompositionCompat = false,
-                        IsNotFirstLaunch = false,
-                        FillOnMaximise = true,
-                        FillOnTaskSwitch = true,
-                        ShowSegmentsOnHover = false,
-                        AutoHide = 0
-                    };
-                }
-                else
-                {
-                    mw.activeSettings = new Types.Settings()
-                    {
-                        SimpleTaskbarLayout = new Types.SegmentSettings { CornerRadius = 16, MarginLeft = 2, MarginTop = 2, MarginRight = 2, MarginBottom = 2 },
-                        DynamicAppListLayout = new Types.SegmentSettings { CornerRadius = 16, MarginLeft = 2, MarginTop = 2, MarginRight = 2, MarginBottom = 2 },
-                        DynamicTrayLayout = new Types.SegmentSettings { CornerRadius = 16, MarginLeft = 2, MarginTop = 2, MarginRight = 2, MarginBottom = 2 },
-                        DynamicWidgetsLayout = new Types.SegmentSettings { CornerRadius = 16, MarginLeft = 2, MarginTop = 2, MarginRight = 2, MarginBottom = 2 },
-                        IsDynamic = false,
-                        IsCentred = false,
-                        IsWindows11 = false,
-                        ShowTray = false,
-                        CompositionCompat = false,
-                        IsNotFirstLaunch = false,
-                        FillOnMaximise = true,
-                        FillOnTaskSwitch = false,
-                        ShowSegmentsOnHover = false,
-                        AutoHide = 0
-                    };
-                }
-                
-                WriteJSON(); // butts - Missy Quarry, 2020
+                File.Create(mw.logPath).Close();
             }
-            if (File.ReadAllText(mw.configPath) == "" || File.ReadAllText(mw.configPath) == null)
+            catch (Exception ex)
             {
-                WriteJSON(); // Initialises empty file
+                Debug.WriteLine($"Failed to create log file: {ex.Message}");
             }
 
+            bool configUsable = false;
+            try
+            {
+                configUsable = File.Exists(mw.configPath) && !string.IsNullOrWhiteSpace(File.ReadAllText(mw.configPath));
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to inspect settings file: {ex.Message}");
+            }
+
+            if (!configUsable)
+            {
+                mw.activeSettings = CreateDefaultSettings(mw.isWindows11);
+                WriteJSON(); // butts - Missy Quarry, 2020
+            }
         }
 
         public static bool SetWorkspace(LocalPInvoke.RECT rect)
