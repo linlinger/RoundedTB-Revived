@@ -41,7 +41,20 @@ namespace RoundedTB
                 }
                 // TaskbarAl is absent (seen on some Windows 11 builds/images): fall back to the OS
                 // default. Windows 11 defaults to a centred taskbar, Windows 10 to left-aligned.
-                return Environment.OSVersion.Version.Build >= 21996;
+                // NOTE: must NOT use Environment.OSVersion - under .NET Core without a supportedOS
+                // manifest entry it returns a compatibility build (e.g. 9600) even on Win11,
+                // which mis-detects the taskbar as left-aligned and exposes a blank strip left of
+                // the Start button. Use the real build number from the registry instead (same as
+                // MainWindow's isWindows11 check).
+                using (RegistryKey ver = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion"))
+                {
+                    object b = ver?.GetValue("CurrentBuild");
+                    if (b != null)
+                    {
+                        return Convert.ToInt32(b) >= 21996;
+                    }
+                }
+                return false;
             }
             catch (Exception)
             {

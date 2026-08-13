@@ -38,12 +38,29 @@ namespace RoundedTB
 
         private void configButton_Click(object sender, RoutedEventArgs e)
         {
-            Process.Start(((MainWindow)Application.Current.MainWindow).configPath);
+            OpenWithDefaultApp(((MainWindow)Application.Current.MainWindow).configPath);
         }
 
         private void logButton_Click(object sender, RoutedEventArgs e)
         {
-            Process.Start(((MainWindow)Application.Current.MainWindow).logPath);
+            OpenWithDefaultApp(((MainWindow)Application.Current.MainWindow).logPath);
+        }
+
+        /// <summary>用系统默认程序打开指定文件;失败时提示而不是崩溃(Process.Start 在文件不存在/
+        /// 无关联程序时会抛异常导致整个程序闪退)。</summary>
+        private void OpenWithDefaultApp(string path)
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    "Could not open: " + path + "\n\n" + ex.Message +
+                    "\n\n无法打开:" + path + "\n" + ex.Message,
+                    "RoundedTB Revived", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
     }
 }

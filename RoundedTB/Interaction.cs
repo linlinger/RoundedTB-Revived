@@ -7,6 +7,7 @@ using System.Windows;
 using System.Threading;
 using System.Drawing;
 using System.Runtime.InteropServices;
+using Microsoft.Win32;
 
 namespace RoundedTB
 {
@@ -36,12 +37,20 @@ namespace RoundedTB
 
         public bool IsWindows11()
         {
-            Debug.WriteLine(Environment.OSVersion.Version.Build);
-            if (Environment.OSVersion.Version.Build >= 21996)
+            try
             {
-                return true;
+                // .NET Core + 无 supportedOS manifest 时 Environment.OSVersion 返回兼容版本
+                // (如 9600),必须用注册表真实构建号判断(与 MainWindow 的 isWindows11 一致)。
+                using (RegistryKey ver = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion"))
+                {
+                    object b = ver?.GetValue("CurrentBuild");
+                    return b != null && Convert.ToInt32(b) >= 21996;
+                }
             }
-            return false;
+            catch (Exception)
+            {
+                return false;
+            }
         }
 
         public void WriteJSON()
