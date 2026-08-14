@@ -18,16 +18,21 @@
         ResizeMode="NoResize"
         >
     <Window.Resources>
-        <!-- WPFUI 风格的托盘右键菜单(圆角暗色 + hover 高亮 + 勾选标记)。
-             托盘图标由 Shell_NotifyIcon 自实现,这里只复刻菜单质感。 -->
+        <!-- 托盘右键菜单主题刷子:右键打开时按系统亮暗模式更新(亮色/暗色)。 -->
+        <SolidColorBrush x:Key="TrayMenuBgBrush" Color="#FA202020"/>
+        <SolidColorBrush x:Key="TrayMenuBorderBrush" Color="#FF3D3D3D"/>
+        <SolidColorBrush x:Key="TrayMenuFgBrush" Color="#FFE8E8E8"/>
+        <SolidColorBrush x:Key="TrayMenuHoverBrush" Color="#FF3D3D3D"/>
+        <!-- WPFUI 风格的托盘右键菜单(圆角 + hover 高亮 + 勾选标记),颜色由上面的刷子按主题控制。 -->
         <Style x:Key="TrayContextMenuStyle" TargetType="{x:Type ContextMenu}">
             <Setter Property="OverridesDefaultStyle" Value="True"/>
             <Setter Property="SnapsToDevicePixels" Value="True"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type ContextMenu}">
-                        <Border Background="#FA202020" BorderBrush="#FF3D3D3D" BorderThickness="1"
-                                CornerRadius="6" Padding="4" Margin="2">
+                        <Border Background="{DynamicResource TrayMenuBgBrush}"
+                                BorderBrush="{DynamicResource TrayMenuBorderBrush}"
+                                BorderThickness="1" CornerRadius="6" Padding="4" Margin="2">
                             <ItemsPresenter/>
                         </Border>
                     </ControlTemplate>
@@ -36,7 +41,7 @@
         </Style>
         <Style x:Key="TrayMenuItemStyle" TargetType="{x:Type MenuItem}">
             <Setter Property="OverridesDefaultStyle" Value="True"/>
-            <Setter Property="Foreground" Value="#FFE8E8E8"/>
+            <Setter Property="Foreground" Value="{DynamicResource TrayMenuFgBrush}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type MenuItem}">
@@ -50,7 +55,8 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsHighlighted" Value="True">
-                                <Setter TargetName="Bg" Property="Background" Value="#FF3D3D3D"/>
+                                <Setter TargetName="Bg" Property="Background"
+                                        Value="{DynamicResource TrayMenuHoverBrush}"/>
                             </Trigger>
                             <Trigger Property="IsChecked" Value="True">
                                 <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>

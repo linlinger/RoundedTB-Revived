@@ -138,12 +138,7 @@ namespace RoundedTB
                 return IntPtr.Zero;
             });
             _trayIcon.LeftClick += () => Dispatcher.Invoke(() => ShowMenuItem_Click(null, null));
-            _trayIcon.RightClick += () => Dispatcher.Invoke(() =>
-            {
-                var trayMenu = (System.Windows.Controls.ContextMenu)FindResource("TrayContextMenu");
-                trayMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
-                trayMenu.IsOpen = true;
-            });
+            _trayIcon.RightClick += () => Dispatcher.Invoke(ShowTrayMenu);
             _trayIcon.Show();
             try { System.IO.File.AppendAllText(System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "rtb-tray.log"), $"[{DateTime.Now:HH:mm:ss.fff}] TRAY-Show-called\n"); } catch { }
             TrayIconCheck(); // 首次设置托盘图标(按主题)
@@ -638,6 +633,44 @@ namespace RoundedTB
             showSegmentsOnHoverCheckBox.IsChecked = activeSettings.ShowSegmentsOnHover;
 
             ApplyButton_Click(null, null);
+        }
+
+        /// <summary>
+        /// 弹出托盘右键菜单:按系统亮暗主题设置菜单颜色;设 PlacementTarget 保证点击菜单外能自动关闭。
+        /// </summary>
+        private void ShowTrayMenu()
+        {
+            try
+            {
+                // 按系统主题(AppsUseLightTheme)切换菜单颜色(亮色/暗色)。
+                bool light = false;
+                try
+                {
+                    using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"))
+                    {
+                        object val = key?.GetValue("AppsUseLightTheme");
+                        if (val != null) light = Convert.ToInt32(val) == 1;
+                    }
+                }
+                catch (Exception) { }
+
+                Resources["TrayMenuBgBrush"] = new System.Windows.Media.SolidColorBrush(
+                    light ? System.Windows.Media.Color.FromRgb(0xFA, 0xFA, 0xFA) : System.Windows.Media.Color.FromRgb(0x20, 0x20, 0x20));
+                Resources["TrayMenuBorderBrush"] = new System.Windows.Media.SolidColorBrush(
+                    light ? System.Windows.Media.Color.FromRgb(0xD0, 0xD0, 0xD0) : System.Windows.Media.Color.FromRgb(0x3D, 0x3D, 0x3D));
+                Resources["TrayMenuFgBrush"] = new System.Windows.Media.SolidColorBrush(
+                    light ? System.Windows.Media.Color.FromRgb(0x1A, 0x1A, 0x1A) : System.Windows.Media.Color.FromRgb(0xE8, 0xE8, 0xE8));
+                Resources["TrayMenuHoverBrush"] = new System.Windows.Media.SolidColorBrush(
+                    light ? System.Windows.Media.Color.FromRgb(0xE0, 0xE0, 0xE0) : System.Windows.Media.Color.FromRgb(0x3D, 0x3D, 0x3D));
+
+                var trayMenu = (System.Windows.Controls.ContextMenu)FindResource("TrayContextMenu");
+                trayMenu.PlacementTarget = this; // 修复:点击菜单外/其他位置能自动关闭
+                trayMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
+                trayMenu.IsOpen = true;
+            }
+            catch (Exception)
+            {
+            }
         }
 
         /// <summary>
