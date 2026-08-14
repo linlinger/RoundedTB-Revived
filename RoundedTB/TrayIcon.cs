@@ -59,10 +59,14 @@ namespace RoundedTB
         {
             bool added = Shell_NotifyIcon(NIM_ADD, ref _nid);
             Log($"Show NIM_ADD={(added ? "OK" : "FAIL err=" + Marshal.GetLastWin32Error())} cbSize={_nid.cbSize} id=0x{_id:X} hWnd={_nid.hWnd} flags={_nid.uFlags}");
-            // 使用较新的 NOTIFYICONDATA 版本,获得右键/新版行为。
-            _nid.uVersion = 4;
-            bool ver = Shell_NotifyIcon(0x00000006 /*NIM_SETVERSION*/, ref _nid);
-            Log($"NIM_SETVERSION={(ver ? "OK" : "FAIL err=" + Marshal.GetLastWin32Error())} uVersion={_nid.uVersion}");
+            // 设置 NOTIFYICON_VERSION_4:右键点击走标准 WM_CONTEXTMENU(0x7B)消息,不依赖窗口激活状态
+            // (v0 下窗口未激活时 Shell 根本不发右键按下/抬起,导致启动时右键无效——日志证据)。
+            // NIM_SETVERSION 需用较小的 cbSize(NOTIFYICONDATA_V2_SIZE=952),完整 V4 结构会 E_FAIL。
+            NOTIFYICONDATA verNid = _nid;
+            verNid.cbSize = 952;
+            verNid.uVersion = 4;
+            bool ver = Shell_NotifyIcon(0x00000006 /*NIM_SETVERSION*/, ref verNid);
+            Log($"NIM_SETVERSION={(ver ? "OK" : "FAIL err=" + Marshal.GetLastWin32Error())} uVersion={verNid.uVersion}");
         }
 
         /// <summary>设置图标与提示文字(带主题切换时调用)。</summary>
@@ -96,6 +100,10 @@ namespace RoundedTB
         /// </summary>
         public bool HandleWindowMessage(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam)
         {
+            if (msg == (int)WM_TRAYICON)
+            {
+                Log($"WM_TRAYICON wParam=0x{wParam.ToInt64():X} lParam=0x{lParam.ToInt64():X}");
+            }
             if (msg == (int)WM_TASKBARCREATED)
             {
                 // Explorer 重启后重新添加图标(数据仍在 _nid 里)。
