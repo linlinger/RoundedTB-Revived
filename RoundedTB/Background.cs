@@ -246,95 +246,11 @@ namespace RoundedTB
 
                             if (settings.AutoHide > 0)
                             {
-                                LocalPInvoke.RECT currentTaskbarRect = taskbars[current].TaskbarRect;
-                                LocalPInvoke.GetCursorPos(out LocalPInvoke.POINT msPt);
-                                bool isHoveringOverTaskbar;
-                                if (taskbars[current].TaskbarHidden)
-                                {
-                                    // 隐藏后只留停靠边 2px 触发区。默认假设底部停靠;
-                                    // 顶部停靠时压顶边 2px,否则顶部任务栏无法用鼠标唤醒淡入。
-                                    if (IsTaskbarAtTop(taskbars[current].TaskbarHwnd, currentTaskbarRect))
-                                    {
-                                        currentTaskbarRect.Bottom = currentTaskbarRect.Top + 2;
-                                    }
-                                    else
-                                    {
-                                        currentTaskbarRect.Top = currentTaskbarRect.Bottom - 2;
-                                    }
-                                    isHoveringOverTaskbar = LocalPInvoke.PtInRect(ref currentTaskbarRect, msPt);
-
-                                }
-                                else
-                                {
-                                    isHoveringOverTaskbar = LocalPInvoke.PtInRect(ref currentTaskbarRect, msPt);
-                                }
-                                if (isHoveringOverTaskbar)
-                                {
-                                    Debug.WriteLine("___");
-                                }
-                                int animSpeed = 15;
-                                byte taskbarOpacity = 0;
-                                LocalPInvoke.GetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, out _, out taskbarOpacity, out _);
-                                //Debug.WriteLine($"Taskbar opacity:  {taskbarOpacity}");
-                                if (isHoveringOverTaskbar && taskbarOpacity == 1)
-                                {
-                                    // 淡入/淡出动画期间抑制对 TranslucentTB 的 force-refresh:
-                                    // Win10 上它会触发 Explorer 重组任务栏回默认外观,把 alpha 拉回
-                                    // 255 造成拉锯闪烁(见 Interaction.UpdateTranslucentTB 说明)。
-                                    Interaction.SuppressTranslucentRefresh = true;
-                                    try
-                                    {
-                                        int style = LocalPInvoke.GetWindowLong(taskbars[current].TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE).ToInt32();
-                                        if ((style & LocalPInvoke.WS_EX_TRANSPARENT) == LocalPInvoke.WS_EX_TRANSPARENT)
-                                        {
-                                            LocalPInvoke.SetWindowLong(taskbars[current].TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE, LocalPInvoke.GetWindowLong(taskbars[current].TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE).ToInt32() ^ LocalPInvoke.WS_EX_TRANSPARENT);
-                                        }
-                                        LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 63, LocalPInvoke.LWA_ALPHA);
-                                        System.Threading.Thread.Sleep(animSpeed);
-                                        LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 127, LocalPInvoke.LWA_ALPHA);
-                                        System.Threading.Thread.Sleep(animSpeed);
-                                        LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 191, LocalPInvoke.LWA_ALPHA);
-                                        System.Threading.Thread.Sleep(animSpeed);
-                                        LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 255, LocalPInvoke.LWA_ALPHA);
-                                        taskbars[current].Ignored = true;
-                                        taskbars[current].TaskbarHidden = false;
-                                        Debug.WriteLine("MouseOver TB");
-                                    }
-                                    finally
-                                    {
-                                        Interaction.SuppressTranslucentRefresh = false;
-                                    }
-                                }
-                                else if (!isHoveringOverTaskbar && taskbarOpacity == 255)
-                                {
-                                    Interaction.SuppressTranslucentRefresh = true;
-                                    try
-                                    {
-                                        LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 191, LocalPInvoke.LWA_ALPHA);
-                                        System.Threading.Thread.Sleep(animSpeed);
-                                        LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 127, LocalPInvoke.LWA_ALPHA);
-                                        System.Threading.Thread.Sleep(animSpeed);
-                                        LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 63, LocalPInvoke.LWA_ALPHA);
-                                        System.Threading.Thread.Sleep(animSpeed);
-                                        LocalPInvoke.SetLayeredWindowAttributes(taskbars[current].TaskbarHwnd, 0, 1, LocalPInvoke.LWA_ALPHA);
-                                        // 淡出完成后移除 WS_EX_TRANSPARENT:该样式让鼠标事件穿透任务栏窗口,
-                                        // OS 的 ABM 自动隐藏就收不到"鼠标靠边"信号、任务栏滑不回来,导致
-                                        // 桌面/非全屏下唤不醒(AutoHide 唤醒 bug 根因)。保留 alpha=1 透明但
-                                        // 恢复命中测试,OS 才能检测到鼠标在边缘并滑回任务栏。
-                                        int style = LocalPInvoke.GetWindowLong(taskbars[current].TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE).ToInt32();
-                                        if ((style & LocalPInvoke.WS_EX_TRANSPARENT) == LocalPInvoke.WS_EX_TRANSPARENT)
-                                        {
-                                            LocalPInvoke.SetWindowLong(taskbars[current].TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE, LocalPInvoke.GetWindowLong(taskbars[current].TaskbarHwnd, LocalPInvoke.GWL_EXSTYLE).ToInt32() ^ LocalPInvoke.WS_EX_TRANSPARENT);
-                                        }
-                                        taskbars[current].Ignored = true;
-                                        taskbars[current].TaskbarHidden = true;
-                                        Debug.WriteLine("MouseOff TB");
-                                    }
-                                    finally
-                                    {
-                                        Interaction.SuppressTranslucentRefresh = false;
-                                    }
-                                }
+                                // AutoHide 由 OS 原生 ABM 自动隐藏(ABM_SETSTATE 在 MainWindow.AutoHide 设置)
+                                // 全权处理任务栏滑出/滑回:鼠标移到停靠边缘,OS 自动把任务栏滑回。
+                                // 此前在这里叠加 RTB 自己的 alpha 淡出 + WS_EX_TRANSPARENT,会与 OS 的
+                                // 揭示机制冲突——桌面/非全屏下鼠标靠边任务栏唤不醒(只有触发 FillOnMaximise
+                                // 的 ResetTaskbar 才恢复),现已移除,不再干预 OS 的自动隐藏。
                             }
                             else
                             {
@@ -467,25 +383,5 @@ namespace RoundedTB
             }
         }
 
-        /// <summary>
-        /// 判断任务栏停靠在监视器顶部还是底部(仅水平停靠,左右不做)。用于 AutoHide 隐藏后
-        /// 2px 边缘触发区的定位。
-        /// </summary>
-        private static bool IsTaskbarAtTop(IntPtr taskbarHwnd, LocalPInvoke.RECT taskbarRect)
-        {
-            try
-            {
-                IntPtr monitor = LocalPInvoke.MonitorFromWindow(taskbarHwnd, 2); // MONITOR_DEFAULTTONEAREST
-                LocalPInvoke.MONITORINFO mi = new LocalPInvoke.MONITORINFO();
-                mi.cbSize = System.Runtime.InteropServices.Marshal.SizeOf(mi);
-                if (LocalPInvoke.GetMonitorInfo(monitor, ref mi))
-                {
-                    // 任务栏顶边距监视器顶 比 任务栏底边距监视器底 更近 → 顶部停靠
-                    return (taskbarRect.Top - mi.rcMonitor.Top) < (mi.rcMonitor.Bottom - taskbarRect.Bottom);
-                }
-            }
-            catch (Exception) { }
-            return false; // 默认按底部处理
-        }
     }
 }
