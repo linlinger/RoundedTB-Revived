@@ -44,7 +44,9 @@ namespace RoundedTB
         private HwndSource source;
         public int selectedSegment = 0; // 0 = Simple, 1 = AppList, 2 = Tray, 3 = Widgets
         public int version = ChannelInfo.Version; // 由构建通道决定(Master=R4/3, Canary/Dev=-1)
-        private bool _lastTrayLight = false; // 上次托盘图标用的主题(暗色=false/亮色=true),避免每帧重建图标
+        // 上次托盘图标用的主题(null=未初始化)。初始必须为 null:若初始为 false,暗色主题(light=false)
+        // 的首次 TrayIconCheck 会被当成"主题没变"而 return,导致托盘图标从不创建。
+        private bool? _lastTrayLight = null;
         // Restart bookkeeping for the taskbar worker. An unhandled exception used to end the
         // loop silently, leaving the app running but doing nothing at all. (移植自 gniang Phase 1)
         private const int MaxWorkerRestarts = 5;
@@ -449,7 +451,7 @@ namespace RoundedTB
                 }
 
                 // 主题没变就不刷新,避免 Background 每秒调用时反复重建托盘图标(会闪烁)。
-                if (light == _lastTrayLight)
+                if (_lastTrayLight.HasValue && light == _lastTrayLight.Value)
                 {
                     return;
                 }
