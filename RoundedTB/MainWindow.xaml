@@ -9,10 +9,10 @@
         xmlns:l="clr-namespace:RoundedTB"
         mc:Ignorable="d"
         Style="{StaticResource UiWindow}"
-        Title="RoundedTB" Height="458" Width="718"
+        Title="RoundedTB Revived" Height="458" Width="718"
         Background="#20808080"
         d:Background="DarkGray"
-        Visibility = "Visible"
+        Visibility = "Hidden"
         Opacity="0.001"
         d:Opacity="1"
         ResizeMode="NoResize"
@@ -85,7 +85,7 @@
                 <wpfui:Button x:Name="trayRectStandIn" Margin="415,0,5,5" Click="trayRectStandIn_Click" VerticalAlignment="Bottom" Height="32" Appearance="Secondary"/>
                 <wpfui:Button x:Name="widgetsRectStandIn" Margin="5,0,415,5" Click="widgetsRectStandIn_Click" VerticalAlignment="Bottom" Height="32" Appearance="Secondary"/>
 
-                <Label Content="RoundedTB" HorizontalAlignment="Center" Margin="0,59,0,108" FontFamily="Segoe UI Variable Display" FontWeight="SemiBold" FontSize="60" Opacity="0.75"/>
+                <Label Content="RoundedTB Revived" HorizontalAlignment="Center" Margin="0,59,0,108" FontFamily="Segoe UI Variable Display" FontWeight="SemiBold" FontSize="60" Opacity="0.75"/>
                 <Label Content="{l:Loc Main_ToBegin}" HorizontalAlignment="Center" Margin="0,138,0,75" FontFamily="Segoe UI Variable Display" FontWeight="SemiBold" FontSize="20" Opacity="0.75"/>
             </Grid>
 
