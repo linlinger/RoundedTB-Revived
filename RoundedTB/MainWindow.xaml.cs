@@ -51,6 +51,7 @@ namespace RoundedTB
         private System.Drawing.Icon _trayIconImage; // 当前托盘图标句柄持有者(避免句柄被 GC 回收)
         // 托盘右键菜单里的控件(ContextMenu 在 Window.Resources,Resources 里的 x:Name 不生成字段,
         // 需在构造里通过 FindName 提取)。
+        private bool _isRestoringUi = false; // 恢复配置到 UI 控件时置位,避免触发 Checked 事件副作用(如弹 TTB 兼容窗口)
         private System.Windows.Controls.MenuItem StartupCheckBox;
         private System.Windows.Controls.MenuItem ShowMenuItem;
         private System.Windows.Controls.MenuItem ResetDefaultsMenuItem;
@@ -343,7 +344,10 @@ namespace RoundedTB
             fillMaximisedCheckBox.IsChecked = activeSettings.FillOnMaximise;
             fillAltTabCheckBox.IsChecked = activeSettings.FillOnTaskSwitch;
             showSegmentsOnHoverCheckBox.IsChecked = activeSettings.ShowSegmentsOnHover;
+            // 恢复配置到 UI 时避免触发 Checked 事件(会弹 TranslucentTB 兼容说明窗口)。
+            _isRestoringUi = true;
             compositionFixCheckBox.IsChecked = activeSettings.CompositionCompat;
+            _isRestoringUi = false;
             // 老配置可能存 AutoHide=2(原版第三项占位,从未实现),现在下拉只剩两项,
             // 归一为 1 避免 SelectedIndex 越界。
             if (activeSettings.AutoHide > 1)
@@ -795,10 +799,15 @@ namespace RoundedTB
             }
             else
             {
-                // Close any popups - leave main window for now
+                // Close any popups (About etc.) - keep this window: closing it would run
+                // OnClosing cleanup, which disposes the tray icon.
                 for (int windowCount = App.Current.Windows.Count - 1; windowCount >= 0; windowCount--)
                 {
-                    App.Current.Windows[windowCount].Close();
+                    Window w = App.Current.Windows[windowCount];
+                    if (!ReferenceEquals(w, this))
+                    {
+                        w.Close();
+                    }
                 }
                 Visibility = Visibility.Hidden;
                 ShowMenuItem.Header = Localization.Get("Menu_Show");
@@ -1064,6 +1073,8 @@ namespace RoundedTB
 
         private void compositionFixCheckBox_Checked(object sender, RoutedEventArgs e)
         {
+            // 恢复配置期间不弹窗(仅用户手动勾选时显示说明)。
+            if (_isRestoringUi) return;
             if (Opacity > 0.01)
             {
                 Infobox ib = new Infobox();
