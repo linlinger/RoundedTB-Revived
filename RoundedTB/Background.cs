@@ -56,7 +56,9 @@ namespace RoundedTB
                     {
                         // Section for running less important things without requiring an additional thread
                         infrequentCount++;
-                        if (infrequentCount == 10)
+                        // 每 5 tick(≈0.5s)做一次低频工作。曾为 10(1s);收紧到 5 以更快刷新 UIA
+                        // 内容边界,缓解动态模式新图标被裁一半的窗口(见 RefreshContentBounds)。
+                        if (infrequentCount == 5)
                         {
                             // Check to see if settings need to be shown
                             List<IntPtr> windowList = Interaction.GetTopLevelWindows();
@@ -280,7 +282,10 @@ namespace RoundedTB
                                 Debug.WriteLine($"Refresh required on taskbar {current}");
                                 taskbars[current].Ignored = false;
                                 int isFullTest = newTaskbar.TrayRect.Left - newTaskbar.AppListRect.Right;
-                                mw.interaction.AddLog($"Taskbar: {current} - AppList ends: {newTaskbar.AppListRect.Right} - Tray starts: {newTaskbar.TrayRect.Left} - Total gap: {isFullTest}");
+                                if (ChannelInfo.VerboseLogging)
+                                {
+                                    mw.interaction.AddLog($"Taskbar: {current} - AppList ends: {newTaskbar.AppListRect.Right} - Tray starts: {newTaskbar.TrayRect.Left} - Total gap: {isFullTest}");
+                                }
                                 if (!settings.IsDynamic || (isFullTest <= taskbars[current].ScaleFactor * 25 && isFullTest > 0 && newTaskbar.TrayRect.Left != 0))
                                 {
                                     // Add the rect changes to the temporary list of taskbars
@@ -288,7 +293,10 @@ namespace RoundedTB
                                     taskbars[current].AppListRect = newTaskbar.AppListRect;
                                     taskbars[current].TrayRect = newTaskbar.TrayRect;
                                     Taskbar.UpdateSimpleTaskbar(taskbars[current], effectiveSettings);
-                                    mw.interaction.AddLog($"Updated taskbar {current} simply");
+                                    if (ChannelInfo.VerboseLogging)
+                                    {
+                                        mw.interaction.AddLog($"Updated taskbar {current} simply");
+                                    }
                                 }
                                 else
                                 {
@@ -299,7 +307,10 @@ namespace RoundedTB
                                         taskbars[current].AppListRect = newTaskbar.AppListRect;
                                         taskbars[current].TrayRect = newTaskbar.TrayRect;
                                         Taskbar.UpdateDynamicTaskbar(taskbars[current], effectiveSettings);
-                                        mw.interaction.AddLog($"Updated taskbar {current} dynamically");
+                                        if (ChannelInfo.VerboseLogging)
+                                        {
+                                            mw.interaction.AddLog($"Updated taskbar {current} dynamically");
+                                        }
                                     }
                                 }
                             }
