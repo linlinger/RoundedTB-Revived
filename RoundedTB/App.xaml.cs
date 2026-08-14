@@ -50,9 +50,13 @@ namespace RoundedTB
 
             WPFUI.Theme.Watcher.Start();
 
-            // 手动创建主窗口(不通过 StartupUri),避免启动瞬间闪过一个窗口;
-            // MainWindow 在 OnSourceInitialized 里会自动隐藏到托盘。
-            new MainWindow();
+            // 手动创建主窗口(不通过 StartupUri)。
+            var mainWindow = new MainWindow();
+            // 初始化窗口显示一次:WPF ContextMenu 在从未显示/激活的 Hidden 窗口上 Popup 不渲染,
+            // 导致启动时托盘右键菜单不显示(左键开一次设置窗口后即正常)。主动 Show+Hide 让窗口
+            // 激活一次——代价是启动时窗口一闪而过(用户接受,换取托盘菜单启动即用)。
+            mainWindow.Show();
+            mainWindow.Hide();
         }
 
         protected override void OnExit(ExitEventArgs e)
