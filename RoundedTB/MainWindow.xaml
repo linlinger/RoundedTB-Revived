@@ -17,6 +17,14 @@
         d:Opacity="1"
         ResizeMode="NoResize"
         >
+    <Window.Resources>
+        <ContextMenu x:Name="TrayContextMenu" x:Key="TrayContextMenu" MouseEnter="ContextMenu_MouseEnter">
+            <CheckBox x:Name ="StartupCheckBox" Content="{l:Loc Menu_RunAtStartup}" Click="Startup_Clicked"/>
+            <MenuItem x:Name ="ShowMenuItem" Header="{l:Loc Menu_Show}" Click="ShowMenuItem_Click"/>
+            <MenuItem x:Name="ResetDefaultsMenuItem" Header="{l:Loc Menu_ResetDefaults}" Click="ResetToDefaults_Click"/>
+            <MenuItem x:Name ="ExitMenuItem" Header="{l:Loc Menu_Exit}" Click="ExitMenuItem_Click"/>
+        </ContextMenu>
+    </Window.Resources>
     <!--169, 393-->
     <Grid x:Name="MainGrid" Margin="0,0,0,0" d:Margin="0,-16,0,0">
         <Grid.RowDefinitions>
@@ -24,16 +32,9 @@
             <RowDefinition />
         </Grid.RowDefinitions>
 
-        <wpfui:TitleBar x:Name="mainTitleBar" Grid.Row="0" UseNotifyIcon="True" NotifyIconImage="pack://application:,,,/res/traydark.ico" NotifyIconTooltip="RoundedTB Revived" ApplicationNavigation="True" Margin="0,0,0,0" Title="{l:Loc Main_Title}" Icon="pack://application:,,,/RoundedTB.ico" Height="51" ShowMaximize="False">
-            <wpfui:TitleBar.NotifyIconMenu>
-                <ContextMenu MouseEnter="ContextMenu_MouseEnter">
-                    <CheckBox x:Name ="StartupCheckBox" Content="{l:Loc Menu_RunAtStartup}" Click="Startup_Clicked"/>
-                    <MenuItem x:Name ="ShowMenuItem" Header="{l:Loc Menu_Show}" Click="ShowMenuItem_Click"/>
-                    <MenuItem x:Name="ResetDefaultsMenuItem" Header="{l:Loc Menu_ResetDefaults}" Click="ResetToDefaults_Click"/>
-                    <MenuItem x:Name ="ExitMenuItem" Header="{l:Loc Menu_Exit}" Click="ExitMenuItem_Click"/>
-                </ContextMenu>
-            </wpfui:TitleBar.NotifyIconMenu>
-        </wpfui:TitleBar>
+        <!-- 托盘图标由 TrayIcon.cs(标准 Shell_NotifyIcon)自实现,不依赖 WPFUI 的 NotifyIcon
+             (WPFUI 版在 Win11 26H1 上图标不显示/错误)。右键菜单在 TrayContextMenu(Window.Resources)。 -->
+        <wpfui:TitleBar x:Name="mainTitleBar" Grid.Row="0" ApplicationNavigation="True" Margin="0,0,0,0" Title="{l:Loc Main_Title}" Icon="pack://application:,,,/RoundedTB.ico" Height="51" ShowMaximize="False"/>
 
         <Grid Grid.Row="1">
 

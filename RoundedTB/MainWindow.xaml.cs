@@ -47,6 +47,14 @@ namespace RoundedTB
         // 上次托盘图标用的主题(null=未初始化)。初始必须为 null:若初始为 false,暗色主题(light=false)
         // 的首次 TrayIconCheck 会被当成"主题没变"而 return,导致托盘图标从不创建。
         private bool? _lastTrayLight = null;
+        private TrayIcon _trayIcon;              // 自实现 Shell_NotifyIcon 托盘图标
+        private System.Drawing.Icon _trayIconImage; // 当前托盘图标句柄持有者(避免句柄被 GC 回收)
+        // 托盘右键菜单里的控件(ContextMenu 在 Window.Resources,Resources 里的 x:Name 不生成字段,
+        // 需在构造里通过 FindName 提取)。
+        private System.Windows.Controls.CheckBox StartupCheckBox;
+        private System.Windows.Controls.MenuItem ShowMenuItem;
+        private System.Windows.Controls.MenuItem ResetDefaultsMenuItem;
+        private System.Windows.Controls.MenuItem ExitMenuItem;
         // Restart bookkeeping for the taskbar worker. An unhandled exception used to end the
         // loop silently, leaving the app running but doing nothing at all. (移植自 gniang Phase 1)
         private const int MaxWorkerRestarts = 5;
@@ -69,6 +77,17 @@ namespace RoundedTB
 
             InitializeComponent();
 
+            // 提取托盘右键菜单里的控件(Resources 里的 x:Name 不生成字段,且 FindName 在
+            // ResourceDictionary 里不可靠,直接用 Items 顺序取:Startup/Show/Reset/Exit)。
+            var trayContextMenu = (System.Windows.Controls.ContextMenu)FindResource("TrayContextMenu");
+            if (trayContextMenu != null)
+            {
+                StartupCheckBox = trayContextMenu.Items[0] as System.Windows.Controls.CheckBox;
+                ShowMenuItem = trayContextMenu.Items[1] as System.Windows.Controls.MenuItem;
+                ResetDefaultsMenuItem = trayContextMenu.Items[2] as System.Windows.Controls.MenuItem;
+                ExitMenuItem = trayContextMenu.Items[3] as System.Windows.Controls.MenuItem;
+            }
+
             // 按构建通道设置标题栏图标(Icon 需要 ImageSource;x:Static 返回 string 会抛异常,
             // 因此用代码设置 BitmapImage)
             mainTitleBar.Icon = new System.Windows.Media.Imaging.BitmapImage(new Uri(ChannelInfo.IconUri));
@@ -80,9 +99,6 @@ namespace RoundedTB
             {
                 (win ?? Window.GetWindow(tb) ?? this).Hide();
             };
-
-            // 左键单击托盘图标:显示/隐藏设置窗口。
-            mainTitleBar.NotifyIconClick += (s, e) => ShowMenuItem_Click(null, null);
 
 
             // Check OS build, as behaviours rather-annoyingly differ between Windows 11 and Windows 10
@@ -457,12 +473,20 @@ namespace RoundedTB
                 }
                 _lastTrayLight = light;
 
-                Uri resLight = new("pack://application:,,,/res/traylight.ico");
-                Uri resDark = new("pack://application:,,,/res/traydark.ico");
-                mainTitleBar.NotifyIconImage = new System.Windows.Media.Imaging.BitmapImage(light ? resLight : resDark);
-                // WPFUI 的 NotifyIconImage 依赖属性没有变更回调,设置后不会自动刷新托盘图标,
-                // 必须显式 ResetIcon() 重建(它在 InitializeNotifyIcon 时读取当前 NotifyIconImage)。
-                mainTitleBar.ResetIcon();
+                if (_trayIcon != null)
+                {
+                    // 加载主题对应的托盘图标(traylight.ico=黑/traydark.ico=白)并设置到 Shell_NotifyIcon。
+                    Uri iconUri = light
+                        ? new Uri("pack://application:,,,/res/traylight.ico")
+                        : new Uri("pack://application:,,,/res/traydark.ico");
+                    _trayIconImage?.Dispose();
+                    using (System.IO.Stream iconStream = System.Windows.Application.GetResourceStream(iconUri).Stream)
+                    {
+                        _trayIconImage = new System.Drawing.Icon(iconStream);
+                    }
+                    // 必须保留 _trayIconImage 引用,否则图标句柄被 GC 回收后托盘图标消失。
+                    _trayIcon.SetIcon(_trayIconImage.Handle, "RoundedTB Revived");
+                }
             }
             catch (Exception)
             {
@@ -652,8 +676,7 @@ namespace RoundedTB
             {
                 try
                 {
-                    mainTitleBar.NotifyIconTooltip = string.IsNullOrEmpty(status) ? "RoundedTB Revived" : status;
-                    mainTitleBar.ResetIcon();
+                    _trayIcon?.SetTip(string.IsNullOrEmpty(status) ? "RoundedTB Revived" : status);
                 }
                 catch (Exception)
                 {
@@ -707,6 +730,16 @@ namespace RoundedTB
             if (!isAlreadyRunning)
             {
                 interaction.WriteJSON();
+            }
+
+            // 清理托盘图标(Shell_NotifyIcon NIM_DELETE)
+            try
+            {
+                _trayIcon?.Dispose();
+                _trayIconImage?.Dispose();
+            }
+            catch (Exception)
+            {
             }
         }
 
@@ -985,6 +1018,25 @@ namespace RoundedTB
             IntPtr handle = new WindowInteropHelper(this).Handle;
             source = HwndSource.FromHwnd(handle);
             source.AddHook(interaction.HwndHook);
+            // 自实现托盘图标(标准 Shell_NotifyIcon,兼容 Win11 26H1;WPFUI 的 NotifyIcon 不可靠)。
+            _trayIcon = new TrayIcon(handle);
+            source.AddHook((IntPtr h, int msg, IntPtr w, IntPtr l, ref bool handled) =>
+            {
+                if (_trayIcon != null && _trayIcon.HandleWindowMessage(h, msg, w, l))
+                {
+                    handled = true;
+                }
+                return IntPtr.Zero;
+            });
+            _trayIcon.LeftClick += () => Dispatcher.Invoke(() => ShowMenuItem_Click(null, null));
+            _trayIcon.RightClick += () => Dispatcher.Invoke(() =>
+            {
+                var trayMenu = (System.Windows.Controls.ContextMenu)FindResource("TrayContextMenu");
+                trayMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
+                trayMenu.IsOpen = true;
+            });
+            _trayIcon.Show();
+            TrayIconCheck(); // 首次设置托盘图标(按主题;_lastTrayLight=null 强制设置)
             // 注册 Win+F2 热键(切换显示托盘段,README 承诺的功能)。id 9000 与 HwndHook 对应。
             LocalPInvoke.RegisterHotKey(handle, 9000, 0x8, 0x71);
             Visibility = Visibility.Hidden;
