@@ -134,6 +134,8 @@
   - [x] **AutoHide(隐藏任务栏)冲突梳理** — 已完成:WS_EX_LAYERED 恢复(ResetTaskbar 后)、
     顶部任务栏 2px 边缘、移除未实现占位项、TranslucentTB force-refresh 抑制(基于 TTB v4 源码)。
   - [x] **26H1 实测** — 已实测可用,但存在偶发闪退(可能伴随 Explorer 崩溃,未复现,记录中)。
+- [ ] **动态模式边缘 padding 用户可调**(2026-08-15 记):当前硬编码 `6*ScaleFactor`
+  (防圆角裁切图标,Taskbar.cs UpdateDynamicTaskbar)。将来做成设置项(左/右各多少)。
 - [ ] i18n 进一步完善(语言切换 UI、新增语言自动识别)——已实施基础保留,整体待规划。
 - [ ] 分段隐藏不同任务栏段(用户明确本轮不做)。
 - [ ] 启动闪窗(低优先级,见上)。
