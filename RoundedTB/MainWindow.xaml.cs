@@ -690,11 +690,19 @@ namespace RoundedTB
                     }
                     LocalPInvoke.GetWindowRect(src.Handle, out LocalPInvoke.RECT rect);
                     LocalPInvoke.GetCursorPos(out LocalPInvoke.POINT pt);
-                    if (pt.x < rect.Left || pt.x > rect.Right || pt.y < rect.Top || pt.y > rect.Bottom)
+                    bool mouseOutside =
+                        pt.x < rect.Left || pt.x > rect.Right || pt.y < rect.Top || pt.y > rect.Bottom;
+                    if (mouseOutside)
                     {
-                        menu.IsOpen = false;
-                        _trayMenuWatchTimer.Stop();
-                        _trayMenuWatchTimer = null;
+                        // 仅在菜单外"点击"(左/右键按下)才关闭;鼠标只是移出悬停别处不关闭。
+                        bool leftDown = (LocalPInvoke.GetAsyncKeyState(0x01) & 0x8000) != 0;
+                        bool rightDown = (LocalPInvoke.GetAsyncKeyState(0x02) & 0x8000) != 0;
+                        if (leftDown || rightDown)
+                        {
+                            menu.IsOpen = false;
+                            _trayMenuWatchTimer.Stop();
+                            _trayMenuWatchTimer = null;
+                        }
                     }
                 };
                 _trayMenuWatchTimer.Start();

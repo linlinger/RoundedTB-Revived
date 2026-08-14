@@ -86,6 +86,9 @@ namespace RoundedTB
         public static extern bool GetCursorPos(out POINT lpPoint);
 
         [DllImport("user32.dll")]
+        public static extern short GetAsyncKeyState(int vKey);
+
+        [DllImport("user32.dll")]
         public static extern int ShowWindow(int hwnd, int command);
 
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
