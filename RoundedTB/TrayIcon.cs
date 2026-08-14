@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Runtime.InteropServices;
 
 namespace RoundedTB
@@ -56,10 +57,12 @@ namespace RoundedTB
 
         public void Show()
         {
-            Shell_NotifyIcon(NIM_ADD, ref _nid);
+            bool added = Shell_NotifyIcon(NIM_ADD, ref _nid);
+            Log($"Show NIM_ADD={(added ? "OK" : "FAIL err=" + Marshal.GetLastWin32Error())} cbSize={_nid.cbSize} id=0x{_id:X} hWnd={_nid.hWnd} flags={_nid.uFlags}");
             // 使用较新的 NOTIFYICONDATA 版本,获得右键/新版行为。
             _nid.uVersion = 4;
-            Shell_NotifyIcon(0x00000006 /*NIM_SETVERSION*/, ref _nid);
+            bool ver = Shell_NotifyIcon(0x00000006 /*NIM_SETVERSION*/, ref _nid);
+            Log($"NIM_SETVERSION={(ver ? "OK" : "FAIL err=" + Marshal.GetLastWin32Error())} uVersion={_nid.uVersion}");
         }
 
         /// <summary>设置图标与提示文字(带主题切换时调用)。</summary>
@@ -68,20 +71,23 @@ namespace RoundedTB
             _nid.hIcon = hIcon;
             _nid.uFlags |= NIF_ICON | NIF_TIP;
             _nid.szTip = tip ?? "RoundedTB Revived";
-            Shell_NotifyIcon(NIM_MODIFY, ref _nid);
+            bool ok = Shell_NotifyIcon(NIM_MODIFY, ref _nid);
+            Log($"SetIcon NIM_MODIFY={(ok ? "OK" : "FAIL err=" + Marshal.GetLastWin32Error())} hIcon=0x{hIcon.ToInt64():X} tip='{_nid.szTip}'");
         }
 
         public void SetTip(string tip)
         {
             _nid.uFlags |= NIF_TIP;
             _nid.szTip = tip ?? "RoundedTB Revived";
-            Shell_NotifyIcon(NIM_MODIFY, ref _nid);
+            bool ok = Shell_NotifyIcon(NIM_MODIFY, ref _nid);
+            Log($"SetTip NIM_MODIFY={(ok ? "OK" : "FAIL err=" + Marshal.GetLastWin32Error())}");
         }
 
         /// <summary>删除托盘图标。</summary>
         public void Delete()
         {
-            Shell_NotifyIcon(NIM_DELETE, ref _nid);
+            bool ok = Shell_NotifyIcon(NIM_DELETE, ref _nid);
+            Log($"Delete NIM_DELETE={(ok ? "OK" : "FAIL err=" + Marshal.GetLastWin32Error())}");
         }
 
         /// <summary>
@@ -93,7 +99,8 @@ namespace RoundedTB
             if (msg == (int)WM_TASKBARCREATED)
             {
                 // Explorer 重启后重新添加图标(数据仍在 _nid 里)。
-                Shell_NotifyIcon(NIM_ADD, ref _nid);
+                bool ok = Shell_NotifyIcon(NIM_ADD, ref _nid);
+                Log($"TaskbarCreated re-add={(ok ? "OK" : "FAIL err=" + Marshal.GetLastWin32Error())}");
                 return false;
             }
 
@@ -120,6 +127,19 @@ namespace RoundedTB
             Delete();
         }
 
+        /// <summary>诊断日志,写入 %LOCALAPPDATA%\rtb-tray.log(独立文件,避免被 Interaction.FileSystem
+        /// 的 File.Create(rtb.log) 截断——主日志在构造早期会被清空)。</summary>
+        private static void Log(string msg)
+        {
+            try
+            {
+                File.AppendAllText(
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "rtb-tray.log"),
+                    $"[{DateTime.Now:HH:mm:ss.fff}] TRAY: {msg}\n");
+            }
+            catch { }
+        }
+
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
         private struct NOTIFYICONDATA
         {
@@ -143,7 +163,7 @@ namespace RoundedTB
             public IntPtr hBalloonIcon;
         }
 
-        [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+        [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
         private static extern bool Shell_NotifyIcon(uint dwMessage, ref NOTIFYICONDATA lpData);
     }
 }

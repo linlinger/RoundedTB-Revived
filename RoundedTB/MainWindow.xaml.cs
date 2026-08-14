@@ -120,6 +120,36 @@ namespace RoundedTB
             background = new Background(this);
             interaction = new Interaction(this);
 
+            // 自实现托盘图标 + Win+F2 热键:直接在构造里初始化,不依赖 SourceInitialized/
+            // OnSourceInitialized——Hidden 窗口从不触发该事件,这是托盘图标"死活看不到"的根因。
+            // EnsureHandle() 强制创建窗口 HWND(Hidden 窗口下 .Handle 可能返回 0)。
+            IntPtr trayHandle = new WindowInteropHelper(this).EnsureHandle();
+            try { System.IO.File.AppendAllText(System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "rtb-tray.log"), $"[{DateTime.Now:HH:mm:ss.fff}] TRAY-init-begin handle=0x{trayHandle.ToInt64():X}\n"); } catch { }
+            source = HwndSource.FromHwnd(trayHandle);
+            source.AddHook(interaction.HwndHook);
+            _trayIcon = new TrayIcon(trayHandle);
+            source.AddHook((IntPtr h, int msg, IntPtr w, IntPtr l, ref bool handled) =>
+            {
+                if (_trayIcon != null && _trayIcon.HandleWindowMessage(h, msg, w, l))
+                {
+                    handled = true;
+                }
+                return IntPtr.Zero;
+            });
+            _trayIcon.LeftClick += () => Dispatcher.Invoke(() => ShowMenuItem_Click(null, null));
+            _trayIcon.RightClick += () => Dispatcher.Invoke(() =>
+            {
+                var trayMenu = (System.Windows.Controls.ContextMenu)FindResource("TrayContextMenu");
+                trayMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
+                trayMenu.IsOpen = true;
+            });
+            _trayIcon.Show();
+            try { System.IO.File.AppendAllText(System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "rtb-tray.log"), $"[{DateTime.Now:HH:mm:ss.fff}] TRAY-Show-called\n"); } catch { }
+            TrayIconCheck(); // 首次设置托盘图标(按主题)
+            LocalPInvoke.RegisterHotKey(trayHandle, 9000, 0x8, 0x71);
+            Visibility = Visibility.Hidden;
+            Opacity = 1;
+
             // Check if RoundedTB is already running, and if it is, do nothing.
             Process[] matchingProcesses = Process.GetProcessesByName(Process.GetCurrentProcess().ProcessName);
             
@@ -1017,31 +1047,8 @@ namespace RoundedTB
         protected override void OnSourceInitialized(EventArgs e)
         {
             base.OnSourceInitialized(e);
-
-            IntPtr handle = new WindowInteropHelper(this).Handle;
-            source = HwndSource.FromHwnd(handle);
-            source.AddHook(interaction.HwndHook);
-            // 自实现托盘图标(标准 Shell_NotifyIcon,兼容 Win11 26H1;WPFUI 的 NotifyIcon 不可靠)。
-            _trayIcon = new TrayIcon(handle);
-            source.AddHook((IntPtr h, int msg, IntPtr w, IntPtr l, ref bool handled) =>
-            {
-                if (_trayIcon != null && _trayIcon.HandleWindowMessage(h, msg, w, l))
-                {
-                    handled = true;
-                }
-                return IntPtr.Zero;
-            });
-            _trayIcon.LeftClick += () => Dispatcher.Invoke(() => ShowMenuItem_Click(null, null));
-            _trayIcon.RightClick += () => Dispatcher.Invoke(() =>
-            {
-                var trayMenu = (System.Windows.Controls.ContextMenu)FindResource("TrayContextMenu");
-                trayMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
-                trayMenu.IsOpen = true;
-            });
-            _trayIcon.Show();
-            TrayIconCheck(); // 首次设置托盘图标(按主题;_lastTrayLight=null 强制设置)
-            // 注册 Win+F2 热键(切换显示托盘段,README 承诺的功能)。id 9000 与 HwndHook 对应。
-            LocalPInvoke.RegisterHotKey(handle, 9000, 0x8, 0x71);
+            // 托盘图标/热键已在构造函数中初始化(Hidden 窗口下本事件可能永不触发)。
+            // 若仍触发,仅保证窗口隐藏,不重复初始化。
             Visibility = Visibility.Hidden;
             Opacity = 1;
         }
