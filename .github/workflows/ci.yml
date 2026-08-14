@@ -1,7 +1,10 @@
-name: release
+name: build
 
+# 每次推送到任意分支都会触发一次 Windows Release 构建,
+# 产物以 "rtb-artifacts" 上传到本次 Actions 运行的页面。
 on:
   push:
+  pull_request:
 
 jobs:
   build:
@@ -10,30 +13,24 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
+
+    - name: Set up .NET SDK
+      uses: actions/setup-dotnet@v4
       with:
-          submodules: recursive
-          
-    - name: Set up MSBuild
-      uses: microsoft/setup-msbuild@v1
-      
-    - name: NuGet Restore
-      run: |
-        cd ${{ github.workspace }}
-        nuget restore RoundedTB.sln
-      
-    - name: Build
-      run: |
-        cd ${{ github.workspace }}
-        msbuild "-property:Configuration=Release" -t:RoundedTB
+        dotnet-version: '8.0.x'
+
+    - name: Build Release
+      run: dotnet build RoundedTB/RoundedTB.csproj -c Release
 
     - name: Add commit hash to output folder
+      shell: pwsh
       run: |
-        Rename-Item -Path ".\RoundedTB\bin\Release" -NewName "RoundedTB-$(git rev-parse --short ${{ github.sha }})"
-        
+        Rename-Item -Path ".\RoundedTB\RoundedTB\bin\Release\net8.0-windows10.0.19041" -NewName "RoundedTB-$(git rev-parse --short ${{ github.sha }})"
+
     - name: Upload artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: rtb-artifacts
         path: |
-          .\RoundedTB\bin\RoundedTB-*\
+          .\RoundedTB\RoundedTB\bin\Release\RoundedTB-*\

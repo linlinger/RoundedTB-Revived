@@ -1,5 +1,7 @@
 # RoundedTB Revived
 
+**English** | [简体中文](./README.zh-CN.md)
+
 #### Add margins, rounded corners and segments to your taskbars!
 
 RoundedTB Revived is a community-maintained continuation of RoundedTB (originally by
@@ -12,6 +14,12 @@ and configurable segments to the Windows 10 / 11 taskbar.
 
 Grab the latest release, unzip it and run `RoundedTB.exe`. You can also compile it
 yourself from source (`build.bat`).
+
+## Continuous build
+
+Every push to this repository triggers a [GitHub Actions](https://github.com/linlinger/RoundedTB-Revived/actions)
+Windows Release build. Artifacts are uploaded as `rtb-artifacts` on the run page — grab them to test the
+latest commit without building locally. See `.github/workflows/ci.yml`.
 
 ## To use
 
