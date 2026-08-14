@@ -271,6 +271,13 @@ namespace RoundedTB
                         contentRight = maxContentRight;
                     }
                 }
+                // 双保险:左边界同样不能越过托盘左(异常 UIA 值可能让 contentLeft 偏右到托盘区,
+                // 导致居中模式下圆角矩形左边界被推到右侧、左边露出任务栏)。越界则回退 legacy 矩形。
+                if (taskbar.TrayRect.Left > taskbar.TaskbarRect.Left && contentLeft >= taskbar.TrayRect.Left)
+                {
+                    contentLeft = taskbar.AppListRect.Left;
+                    contentRight = taskbar.AppListRect.Right;
+                }
                 // 内容左缘不可能在任务栏左缘之外。
                 if (contentLeft < taskbar.TaskbarRect.Left)
                 {
