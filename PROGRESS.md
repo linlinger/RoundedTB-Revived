@@ -58,6 +58,14 @@
     pre-3.0 迁移(`CornerRadius`/`MarginBasic`/`ShowTrayOnHover`)。
   - worker 循环不静默死:catch 扩到 Exception + `RunWorkerCompleted` 重启(限频 5 次/分)。
   - Explorer 崩溃时任务栏重建指数退避(100ms→5s),托盘提示降级状态。
+- **R4.2 批次(2026-08-15,产品名统一 + 性能/稳定性)**:
+  - 产品名统一为 "RoundedTB Revived"(窗口标题/大标题/商店 manifest DisplayName/ShortName/
+    StartupTask;AssemblyInfo 此前已统一)。
+  - 启动闪窗:MainWindow.xaml 根 Visibility Hidden(双保险)。
+  - 性能:region 重放高频日志("Taskbar:"/"Updated taskbar")门控 VerboseLogging,Master 减少文件 IO。
+  - 稳定性:全局未处理异常(Dispatcher/AppDomain/TaskScheduler)写 rtb.log,便于诊断 26H1 闪退;
+    UIA 刷新周期 10→5 tick(0.5s)缓解动态新图标半截。
+  - **.NET 决策:维持 .NET 8**(net8 LTS 到 2026-11;自包含发布不受 runtime 影响;迁移放下一主要版本)。
 - **R4.1 批次(2026-08-14,代码注释盘点 + AutoHide/TranslucentTB 冲突修复)**:
   - AutoHide:两个 Update*Taskbar 恢复 `WS_EX_LAYERED`(修复"最大化一次后淡出永久失效");2px
     唤醒区支持顶部停靠;移除从未实现的 AutoHide 第三项占位(`AutoHide=2` 读入 clamp 为 1)。
@@ -72,10 +80,10 @@
 
 ## 已知问题 / 待接手(低优先级)
 
-- **启动仍有一闪而过的窗口**(低优先级):已去掉 StartupUri、OnStartup 手动 `new
-  MainWindow()`,但 MainWindow.xaml 根元素 `Visibility="Visible"` 在
-  `OnSourceInitialized` 置 Hidden 前仍可能短暂显示。方向:把该属性改 `Hidden` 或
-  在构造里更早隐藏。
+- **动态模式:新图标短暂半截**(R4.2 已缓解——region 重放前同步刷新 UIA 边界 + 刷新周期缩至
+  0.5s;残留为 Windows UIA 端滞后,仍未根治)。
+- **Win11 26H1 偶发闪退**(可能伴随 Explorer 崩溃,未稳定复现;R4.2 已加全局异常日志,
+  待下次闪退抓堆栈定位)。
 
 ## Gniang fork 移植记录
 
@@ -125,7 +133,7 @@
     Interaction 构造器注入 mw(消除原版 TODO 空 catch)。
   - [x] **AutoHide(隐藏任务栏)冲突梳理** — 已完成:WS_EX_LAYERED 恢复(ResetTaskbar 后)、
     顶部任务栏 2px 边缘、移除未实现占位项、TranslucentTB force-refresh 抑制(基于 TTB v4 源码)。
-  - [ ] **26H1 实测确认** → 把 R4 pre-release 转正式版(去掉 pre-release 标记)。
+  - [x] **26H1 实测** — 已实测可用,但存在偶发闪退(可能伴随 Explorer 崩溃,未复现,记录中)。
 - [ ] i18n 进一步完善(语言切换 UI、新增语言自动识别)——已实施基础保留,整体待规划。
 - [ ] 分段隐藏不同任务栏段(用户明确本轮不做)。
 - [ ] 启动闪窗(低优先级,见上)。
