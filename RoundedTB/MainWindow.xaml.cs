@@ -52,6 +52,7 @@ namespace RoundedTB
         // 托盘右键菜单里的控件(ContextMenu 在 Window.Resources,Resources 里的 x:Name 不生成字段,
         // 需在构造里通过 FindName 提取)。
         private bool _isRestoringUi = false; // 恢复配置到 UI 控件时置位,避免触发 Checked 事件副作用(如弹 TTB 兼容窗口)
+        private System.Windows.Threading.DispatcherTimer _trayMenuWatchTimer; // 托盘菜单外点击自动关闭的鼠标监控
         private System.Windows.Controls.MenuItem StartupCheckBox;
         private System.Windows.Controls.MenuItem ShowMenuItem;
         private System.Windows.Controls.MenuItem ResetDefaultsMenuItem;
@@ -664,9 +665,39 @@ namespace RoundedTB
                     light ? System.Windows.Media.Color.FromRgb(0xE0, 0xE0, 0xE0) : System.Windows.Media.Color.FromRgb(0x3D, 0x3D, 0x3D));
 
                 var trayMenu = (System.Windows.Controls.ContextMenu)FindResource("TrayContextMenu");
-                trayMenu.PlacementTarget = this; // 修复:点击菜单外/其他位置能自动关闭
+                trayMenu.PlacementTarget = this;
                 trayMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint;
                 trayMenu.IsOpen = true;
+
+                // 托盘应用的 WPF ContextMenu 默认点击外部不关闭,启动鼠标监控:
+                // 检测到鼠标移出菜单窗口即关闭(行为同系统 TrackPopupMenu / TTB)。
+                _trayMenuWatchTimer?.Stop();
+                _trayMenuWatchTimer = new System.Windows.Threading.DispatcherTimer();
+                _trayMenuWatchTimer.Interval = TimeSpan.FromMilliseconds(100);
+                _trayMenuWatchTimer.Tick += (s, ev) =>
+                {
+                    var menu = (System.Windows.Controls.ContextMenu)FindResource("TrayContextMenu");
+                    if (menu == null || !menu.IsOpen)
+                    {
+                        _trayMenuWatchTimer.Stop();
+                        _trayMenuWatchTimer = null;
+                        return;
+                    }
+                    var src = System.Windows.PresentationSource.FromVisual(menu) as System.Windows.Interop.HwndSource;
+                    if (src == null)
+                    {
+                        return;
+                    }
+                    LocalPInvoke.GetWindowRect(src.Handle, out LocalPInvoke.RECT rect);
+                    LocalPInvoke.GetCursorPos(out LocalPInvoke.POINT pt);
+                    if (pt.x < rect.Left || pt.x > rect.Right || pt.y < rect.Top || pt.y > rect.Bottom)
+                    {
+                        menu.IsOpen = false;
+                        _trayMenuWatchTimer.Stop();
+                        _trayMenuWatchTimer = null;
+                    }
+                };
+                _trayMenuWatchTimer.Start();
             }
             catch (Exception)
             {
