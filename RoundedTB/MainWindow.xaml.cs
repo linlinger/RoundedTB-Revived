@@ -141,7 +141,9 @@ namespace RoundedTB
                 logPath = Path.Combine(Windows.Storage.ApplicationData.Current.RoamingFolder.Path, "rtb.log");
             }
 
-            if (System.IO.File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "RoundedTB.lnk")) && !IsRunningAsUWP())
+            // 任务管理器"启动"页显示快捷方式文件名,故用 "RoundedTB Revived.lnk";兼容旧版 "RoundedTB.lnk"
+            string startupFolder = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
+            if ((System.IO.File.Exists(Path.Combine(startupFolder, "RoundedTB Revived.lnk")) || System.IO.File.Exists(Path.Combine(startupFolder, "RoundedTB.lnk"))) && !IsRunningAsUWP())
             {
                 StartupCheckBox.IsChecked = true;
                 ShowMenuItem.Header = Localization.Get("Menu_Show");
@@ -742,9 +744,13 @@ namespace RoundedTB
             }
             else
             {
-                if (System.IO.File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "RoundedTB.lnk")))
+                string startupFolder = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
+                string newLink = Path.Combine(startupFolder, "RoundedTB Revived.lnk");
+                string legacyLink = Path.Combine(startupFolder, "RoundedTB.lnk");
+                if (System.IO.File.Exists(newLink) || System.IO.File.Exists(legacyLink))
                 {
-                    System.IO.File.Delete(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "RoundedTB.lnk"));
+                    if (System.IO.File.Exists(newLink)) { System.IO.File.Delete(newLink); }
+                    if (System.IO.File.Exists(legacyLink)) { System.IO.File.Delete(legacyLink); }
                 }
                 else
                 {
@@ -762,7 +768,8 @@ namespace RoundedTB
                 {
                     Directory.CreateDirectory(shortcutFolder);
                 }
-                string rtbStartupLink = Path.Combine(shortcutFolder, "RoundedTB.lnk");
+                // 快捷方式文件名 = 任务管理器"启动"页显示的名称
+                string rtbStartupLink = Path.Combine(shortcutFolder, "RoundedTB Revived.lnk");
                 // Create the shortcut via the WScript.Shell COM object, called through late-bound
                 // "dynamic" so we don't need a design-time COM reference (the .NET Core MSBuild
                 // cannot resolve COM references - see MSB4803). Behaviour is identical to the old
@@ -777,6 +784,12 @@ namespace RoundedTB
                 shortcut.Arguments = "";
                 shortcut.Description = "RoundedTB Revived";
                 shortcut.Save();
+                // 迁移:删除旧版 "RoundedTB.lnk",避免残留旧启动项(名称显示为 "RoundedTB")
+                string legacyLink = Path.Combine(shortcutFolder, "RoundedTB.lnk");
+                if (System.IO.File.Exists(legacyLink) && !string.Equals(legacyLink, rtbStartupLink, StringComparison.OrdinalIgnoreCase))
+                {
+                    System.IO.File.Delete(legacyLink);
+                }
             }
             catch (Exception)
             {
