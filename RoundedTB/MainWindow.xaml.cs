@@ -230,10 +230,10 @@ namespace RoundedTB
                 {
                     activeSettings = new Types.Settings()
                     {
-                        SimpleTaskbarLayout = new Types.SegmentSettings{ CornerRadius = 8, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
-                        DynamicAppListLayout = new Types.SegmentSettings { CornerRadius = 8, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
-                        DynamicTrayLayout = new Types.SegmentSettings { CornerRadius = 8, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
-                        DynamicWidgetsLayout = new Types.SegmentSettings { CornerRadius = 8, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
+                        SimpleTaskbarLayout = new Types.SegmentSettings{ CornerRadius = 20, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
+                        DynamicAppListLayout = new Types.SegmentSettings { CornerRadius = 20, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
+                        DynamicTrayLayout = new Types.SegmentSettings { CornerRadius = 20, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
+                        DynamicWidgetsLayout = new Types.SegmentSettings { CornerRadius = 20, MarginLeft = 3, MarginTop = 3, MarginRight = 3, MarginBottom = 3 },
                         IsDynamic = false,
                         IsCentred = false,
                         IsWindows11 = true,
@@ -273,10 +273,10 @@ namespace RoundedTB
             // Older config files were saved with a different settings schema (no per-segment
             // layouts). Default any missing segment layout so the app still applies cleanly
             // when a user upgrades from an older build.
-            if (activeSettings.SimpleTaskbarLayout == null) activeSettings.SimpleTaskbarLayout = new Types.SegmentSettings { CornerRadius = 8, MarginTop = 3, MarginLeft = 3, MarginRight = 3, MarginBottom = 3 };
-            if (activeSettings.DynamicAppListLayout == null) activeSettings.DynamicAppListLayout = new Types.SegmentSettings { CornerRadius = 8, MarginTop = 3, MarginLeft = 3, MarginRight = 3, MarginBottom = 3 };
-            if (activeSettings.DynamicTrayLayout == null) activeSettings.DynamicTrayLayout = new Types.SegmentSettings { CornerRadius = 8, MarginTop = 3, MarginLeft = 3, MarginRight = 3, MarginBottom = 3 };
-            if (activeSettings.DynamicWidgetsLayout == null) activeSettings.DynamicWidgetsLayout = new Types.SegmentSettings { CornerRadius = 8, MarginTop = 3, MarginLeft = 3, MarginRight = 3, MarginBottom = 3 };
+            if (activeSettings.SimpleTaskbarLayout == null) activeSettings.SimpleTaskbarLayout = new Types.SegmentSettings { CornerRadius = 20, MarginTop = 3, MarginLeft = 3, MarginRight = 3, MarginBottom = 3 };
+            if (activeSettings.DynamicAppListLayout == null) activeSettings.DynamicAppListLayout = new Types.SegmentSettings { CornerRadius = 20, MarginTop = 3, MarginLeft = 3, MarginRight = 3, MarginBottom = 3 };
+            if (activeSettings.DynamicTrayLayout == null) activeSettings.DynamicTrayLayout = new Types.SegmentSettings { CornerRadius = 20, MarginTop = 3, MarginLeft = 3, MarginRight = 3, MarginBottom = 3 };
+            if (activeSettings.DynamicWidgetsLayout == null) activeSettings.DynamicWidgetsLayout = new Types.SegmentSettings { CornerRadius = 20, MarginTop = 3, MarginLeft = 3, MarginRight = 3, MarginBottom = 3 };
 
             if (version != activeSettings.Version && version != -1)
             {
