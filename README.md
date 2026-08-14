@@ -44,6 +44,7 @@ The advanced options allow for further customisation, at the cost of some user-f
 
 ## Known issues
  - **Auto-hide**: use the built-in AutoHide option. Enabling Windows' own auto-hide at the same time can cause flicker.
+ - **Dynamic mode**: when a new app icon appears, the taskbar may briefly clip it in half before self-correcting (cosmetic; being fixed in the next release).
  - Rounded corners are not antialiased due to a Windows limitation.
  - Dynamic mode/split mode only work correctly when the taskbar is horizontal at the top/bottom of the screen.
  - Split mode on Windows 10 only supports the main taskbar, secondary taskbars will not be split.

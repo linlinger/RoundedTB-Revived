@@ -103,22 +103,9 @@ namespace RoundedTB
                             // from UI Automation and force a redraw when they change.
                             foreach (Types.Taskbar tb in mw.taskbarDetails)
                             {
-                                if (Taskbar.GetTrueTaskbarContentBounds(tb, out int contentLeft, out int contentRight))
+                                if (RefreshContentBounds(tb))
                                 {
-                                    // 合理性检查:UIA 在任务栏重绘/悬停等瞬间偶发返回异常值,
-                                    // 只在结果可信时才更新缓存,避免把左/右边界拉崩
-                                    // (例如左侧多出一段空白任务栏)。
-                                    bool sane =
-                                        contentLeft >= tb.TaskbarRect.Left &&
-                                        contentRight > contentLeft &&
-                                        contentRight <= tb.TaskbarRect.Right &&
-                                        (tb.TrayRect.Left <= tb.TaskbarRect.Left || contentRight <= tb.TrayRect.Left);
-                                    if (sane && (contentLeft != tb.ContentLeft || contentRight != tb.ContentRight))
-                                    {
-                                        tb.ContentLeft = contentLeft;
-                                        tb.ContentRight = contentRight;
-                                        tb.Ignored = true;
-                                    }
+                                    tb.Ignored = true;
                                 }
                             }
 
@@ -280,6 +267,13 @@ namespace RoundedTB
                             // If the taskbar's overall rect has changed, update it. If it's simple, just update. If it's dynamic, check it's a valid change, then update it.
                             if (Taskbar.TaskbarRefreshRequired(taskbars[current], newTaskbar, settings.IsDynamic) || taskbars[current].Ignored || redrawOverride)
                             {
+                                // 动态模式:重放 region 前先同步刷新 UIA 内容边界。
+                                // infrequent tick 每 ~1s 才更新一次缓存,新图标出现时若用旧缓存
+                                // 重放会把它裁掉一半(鼠标移过触发重绘后才恢复)。
+                                if (settings.IsDynamic)
+                                {
+                                    RefreshContentBounds(taskbars[current]);
+                                }
                                 Debug.WriteLine($"Refresh required on taskbar {current}");
                                 taskbars[current].Ignored = false;
                                 int isFullTest = newTaskbar.TrayRect.Left - newTaskbar.AppListRect.Right;
@@ -381,6 +375,33 @@ namespace RoundedTB
                 Debug.WriteLine("Taskbar handles unavailable - retrying slowly");
                 mw.SetTrayStatus("RoundedTB - waiting for the taskbar...");
             }
+        }
+
+        /// <summary>
+        /// 查询并更新任务栏的 UIA 内容边界缓存(带合理性检查),返回是否更新。
+        /// 用于 infrequent tick 的周期性刷新,以及动态模式 region 重放前的同步刷新
+        /// (新图标出现时若用旧缓存重放会把它裁掉一半)。
+        /// </summary>
+        private static bool RefreshContentBounds(Types.Taskbar tb)
+        {
+            if (Taskbar.GetTrueTaskbarContentBounds(tb, out int contentLeft, out int contentRight))
+            {
+                // 合理性检查:UIA 在任务栏重绘/悬停等瞬间偶发返回异常值,
+                // 只在结果可信时才更新缓存,避免把左/右边界拉崩
+                // (例如左侧多出一段空白任务栏)。
+                bool sane =
+                    contentLeft >= tb.TaskbarRect.Left &&
+                    contentRight > contentLeft &&
+                    contentRight <= tb.TaskbarRect.Right &&
+                    (tb.TrayRect.Left <= tb.TaskbarRect.Left || contentRight <= tb.TrayRect.Left);
+                if (sane && (contentLeft != tb.ContentLeft || contentRight != tb.ContentRight))
+                {
+                    tb.ContentLeft = contentLeft;
+                    tb.ContentRight = contentRight;
+                    return true;
+                }
+            }
+            return false;
         }
 
     }
