@@ -18,11 +18,61 @@
         ResizeMode="NoResize"
         >
     <Window.Resources>
-        <ContextMenu x:Name="TrayContextMenu" x:Key="TrayContextMenu" MouseEnter="ContextMenu_MouseEnter">
-            <CheckBox x:Name ="StartupCheckBox" Content="{l:Loc Menu_RunAtStartup}" Click="Startup_Clicked"/>
-            <MenuItem x:Name ="ShowMenuItem" Header="{l:Loc Menu_Show}" Click="ShowMenuItem_Click"/>
-            <MenuItem x:Name="ResetDefaultsMenuItem" Header="{l:Loc Menu_ResetDefaults}" Click="ResetToDefaults_Click"/>
-            <MenuItem x:Name ="ExitMenuItem" Header="{l:Loc Menu_Exit}" Click="ExitMenuItem_Click"/>
+        <!-- WPFUI 风格的托盘右键菜单(圆角暗色 + hover 高亮 + 勾选标记)。
+             托盘图标由 Shell_NotifyIcon 自实现,这里只复刻菜单质感。 -->
+        <Style x:Key="TrayContextMenuStyle" TargetType="{x:Type ContextMenu}">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ContextMenu}">
+                        <Border Background="#FA202020" BorderBrush="#FF3D3D3D" BorderThickness="1"
+                                CornerRadius="6" Padding="4" Margin="2">
+                            <ItemsPresenter/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="TrayMenuItemStyle" TargetType="{x:Type MenuItem}">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Foreground" Value="#FFE8E8E8"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type MenuItem}">
+                        <Border x:Name="Bg" Background="Transparent" CornerRadius="4" Padding="8,6" Margin="1">
+                            <DockPanel>
+                                <TextBlock x:Name="CheckMark" DockPanel.Dock="Left" Text="&#x2713;"
+                                           Width="18" Visibility="Collapsed" Foreground="#FF8AB4F8"/>
+                                <ContentPresenter ContentSource="Header" RecognizesAccessKey="True"
+                                                  VerticalAlignment="Center"/>
+                            </DockPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="#FF3D3D3D"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <ContextMenu x:Name="TrayContextMenu" x:Key="TrayContextMenu" MouseEnter="ContextMenu_MouseEnter"
+                     Style="{StaticResource TrayContextMenuStyle}">
+            <MenuItem x:Name="StartupCheckBox" Header="{l:Loc Menu_RunAtStartup}" IsCheckable="True"
+                      Click="Startup_Clicked" Style="{StaticResource TrayMenuItemStyle}"/>
+            <MenuItem x:Name="ShowMenuItem" Header="{l:Loc Menu_Show}" Click="ShowMenuItem_Click"
+                      Style="{StaticResource TrayMenuItemStyle}"/>
+            <MenuItem x:Name="ResetDefaultsMenuItem" Header="{l:Loc Menu_ResetDefaults}" Click="ResetToDefaults_Click"
+                      Style="{StaticResource TrayMenuItemStyle}"/>
+            <MenuItem x:Name="ExitMenuItem" Header="{l:Loc Menu_Exit}" Click="ExitMenuItem_Click"
+                      Style="{StaticResource TrayMenuItemStyle}"/>
         </ContextMenu>
     </Window.Resources>
     <!--169, 393-->

@@ -51,7 +51,7 @@ namespace RoundedTB
         private System.Drawing.Icon _trayIconImage; // 当前托盘图标句柄持有者(避免句柄被 GC 回收)
         // 托盘右键菜单里的控件(ContextMenu 在 Window.Resources,Resources 里的 x:Name 不生成字段,
         // 需在构造里通过 FindName 提取)。
-        private System.Windows.Controls.CheckBox StartupCheckBox;
+        private System.Windows.Controls.MenuItem StartupCheckBox;
         private System.Windows.Controls.MenuItem ShowMenuItem;
         private System.Windows.Controls.MenuItem ResetDefaultsMenuItem;
         private System.Windows.Controls.MenuItem ExitMenuItem;
@@ -82,7 +82,7 @@ namespace RoundedTB
             var trayContextMenu = (System.Windows.Controls.ContextMenu)FindResource("TrayContextMenu");
             if (trayContextMenu != null)
             {
-                StartupCheckBox = trayContextMenu.Items[0] as System.Windows.Controls.CheckBox;
+                StartupCheckBox = trayContextMenu.Items[0] as System.Windows.Controls.MenuItem;
                 ShowMenuItem = trayContextMenu.Items[1] as System.Windows.Controls.MenuItem;
                 ResetDefaultsMenuItem = trayContextMenu.Items[2] as System.Windows.Controls.MenuItem;
                 ExitMenuItem = trayContextMenu.Items[3] as System.Windows.Controls.MenuItem;
@@ -909,7 +909,7 @@ namespace RoundedTB
                         Visibility = Visibility.Visible;
                         ShowMenuItem.Header = Localization.Get("Menu_Hide");
                     }
-                    StartupCheckBox.Content = Localization.Get("Menu_RunAtStartup");
+                    StartupCheckBox.Header = Localization.Get("Menu_RunAtStartup");
                     break;
 
                 case StartupTaskState.DisabledByUser:
@@ -920,7 +920,7 @@ namespace RoundedTB
                         Visibility = Visibility.Visible;
                         ShowMenuItem.Header = Localization.Get("Menu_Hide");
                     }
-                    StartupCheckBox.Content = Localization.Get("Menu_StartupUnavailable");
+                    StartupCheckBox.Header = Localization.Get("Menu_StartupUnavailable");
                     break;
 
                 case StartupTaskState.EnabledByPolicy:
@@ -931,7 +931,7 @@ namespace RoundedTB
                         Visibility = Visibility.Hidden;
                         ShowMenuItem.Header = Localization.Get("Menu_Show");
                     }
-                    StartupCheckBox.Content = Localization.Get("Menu_StartupMandatory");
+                    StartupCheckBox.Header = Localization.Get("Menu_StartupMandatory");
                     break;
 
                 case StartupTaskState.DisabledByPolicy:
@@ -942,7 +942,7 @@ namespace RoundedTB
                         Visibility = Visibility.Visible;
                         ShowMenuItem.Header = Localization.Get("Menu_Hide");
                     }
-                    StartupCheckBox.Content = Localization.Get("Menu_StartupUnavailable");
+                    StartupCheckBox.Header = Localization.Get("Menu_StartupUnavailable");
                     break;
 
                 case StartupTaskState.Enabled:
@@ -953,7 +953,7 @@ namespace RoundedTB
                         Visibility = Visibility.Hidden;
                         ShowMenuItem.Header = Localization.Get("Menu_Show");
                     }
-                    StartupCheckBox.Content = Localization.Get("Menu_RunAtStartup");
+                    StartupCheckBox.Header = Localization.Get("Menu_RunAtStartup");
                     break;
             }
         }
