@@ -24,7 +24,7 @@
             <RowDefinition />
         </Grid.RowDefinitions>
 
-        <wpfui:TitleBar x:Name="mainTitleBar" Grid.Row="0" UseNotifyIcon="True" NotifyIconImage="pack://application:,,,/res/traydark.ico" NotifyIconTooltip="RoundedTB Revived" ApplicationNavigation="True" Margin="0,0,0,0" Title="{l:Loc Main_Title}" Icon="pack://application:,,,/RoundedTBCanary.ico" Height="51" ShowMaximize="False">
+        <wpfui:TitleBar x:Name="mainTitleBar" Grid.Row="0" UseNotifyIcon="True" NotifyIconImage="pack://application:,,,/res/traydark.ico" NotifyIconTooltip="RoundedTB Revived" ApplicationNavigation="True" Margin="0,0,0,0" Title="{l:Loc Main_Title}" Icon="{x:Static local:ChannelInfo.IconUri}" Height="51" ShowMaximize="False">
             <wpfui:TitleBar.NotifyIconMenu>
                 <ContextMenu MouseEnter="ContextMenu_MouseEnter">
                     <CheckBox x:Name ="StartupCheckBox" Content="{l:Loc Menu_RunAtStartup}" Click="Startup_Clicked"/>

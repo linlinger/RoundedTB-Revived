@@ -26,6 +26,11 @@ namespace RoundedTB
             InitializeComponent();
             WPFUI.Background.Manager.Apply(WPFUI.Background.BackgroundType.Mica, this);
 
+            // 按构建通道显示对应横幅(Canary / Dev / Master)
+            bannerMst.Visibility = ChannelInfo.Name == "Master" ? Visibility.Visible : Visibility.Hidden;
+            bannerDev.Visibility = ChannelInfo.Name == "Dev" ? Visibility.Visible : Visibility.Hidden;
+            bannerCan.Visibility = ChannelInfo.Name == "Canary" ? Visibility.Visible : Visibility.Hidden;
+
             // 关闭按钮 = 只关闭本窗口。TitleBar 设了 ApplicationNavigation=True,默认关闭按钮会
             // 直接 Application.Shutdown() 退出整个程序,必须覆盖为正常关闭窗口。
             // 注意:WPFUI 传给 override 的窗口可能是内部 _parent 字段(懒赋值,可能为 null),

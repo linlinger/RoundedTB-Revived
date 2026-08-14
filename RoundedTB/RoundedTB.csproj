@@ -8,7 +8,12 @@
     <ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
   </PropertyGroup>
   <PropertyGroup>
-    <ApplicationIcon>RoundedTBCanary.ico</ApplicationIcon>
+    <!-- 构建通道:Canary(默认)/ Dev / Master。用法:dotnet build -c Release -p:Channel=Master -->
+    <Channel Condition="'$(Channel)' == ''">Canary</Channel>
+    <DefineConstants>$(DefineConstants);CHANNEL_$(Channel)</DefineConstants>
+    <ApplicationIcon Condition="'$(Channel)' == 'Canary'">RoundedTBCanary.ico</ApplicationIcon>
+    <ApplicationIcon Condition="'$(Channel)' == 'Dev'">RoundedTBDev.ico</ApplicationIcon>
+    <ApplicationIcon Condition="'$(Channel)' == 'Master'">RoundedTB.ico</ApplicationIcon>
   </PropertyGroup>
   <PropertyGroup>
     <ApplicationManifest>app.manifest</ApplicationManifest>

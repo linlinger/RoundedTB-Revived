@@ -162,7 +162,7 @@ namespace RoundedTB
                             Types.Taskbar newTaskbar = Taskbar.GetQuickTaskbarRects(taskbars[current].TaskbarHwnd, taskbars[current].TrayHwnd, taskbars[current].AppListHwnd);
 
                             // [DEBUG] 每 10 帧输出一次主循环状态,用于定位悬停/最大化恢复不工作
-                            if (loopLogCount++ % 10 == 0)
+                            if (ChannelInfo.VerboseLogging && loopLogCount++ % 10 == 0)
                             {
                                 mw.interaction.AddLog($"bw[{current}]: segHover={settings.ShowSegmentsOnHover} trayLeft={taskbars[current].TrayRect.Left} trayRect=({taskbars[current].TrayRect.Left},{taskbars[current].TrayRect.Top})-({taskbars[current].TrayRect.Right},{taskbars[current].TrayRect.Bottom}) dyn={settings.IsDynamic} fill={Taskbar.TaskbarShouldBeFilled(taskbars[current].TaskbarHwnd, settings)}");
                             }
@@ -200,8 +200,11 @@ namespace RoundedTB
                                     LocalPInvoke.GetCursorPos(out LocalPInvoke.POINT msPt);
                                     bool isHoveringOverTray = LocalPInvoke.PtInRect(ref currentTrayRect, msPt);
                                     bool isHoveringOverWidgets = LocalPInvoke.PtInRect(ref currentWidgetsRect, msPt);
-                                    // [DEBUG] hover 诊断
-                                    mw.interaction.AddLog($"hover: tray=({currentTrayRect.Left},{currentTrayRect.Top})-({currentTrayRect.Right},{currentTrayRect.Bottom}) mouse=({msPt.x},{msPt.y}) hoverTray={isHoveringOverTray} hoverShowTray={hoverShowTray} dyn={settings.IsDynamic}");
+                                    // [DEBUG] hover 诊断(仅预发布通道保留)
+                                    if (ChannelInfo.VerboseLogging)
+                                    {
+                                        mw.interaction.AddLog($"hover: tray=({currentTrayRect.Left},{currentTrayRect.Top})-({currentTrayRect.Right},{currentTrayRect.Bottom}) mouse=({msPt.x},{msPt.y}) hoverTray={isHoveringOverTray} hoverShowTray={hoverShowTray} dyn={settings.IsDynamic}");
+                                    }
                                     if (isHoveringOverTray && !hoverShowTray)
                                     {
                                         hoverShowTray = true;
