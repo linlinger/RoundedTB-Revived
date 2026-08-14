@@ -14,6 +14,7 @@ namespace RoundedTB
         public MainWindow mw;
         bool redrawOverride = false;
         int infrequentCount = 0;
+        int settingsRequestCount = 0; // 单实例"设置请求"窗口枚举的低频计数(每 3 次 infrequent 一次)
         int loopLogCount = 0; // [DEBUG] 节流状态日志计数
 
         // 移植自 gniang (Phase 1):句柄缺失(Explorer 崩溃/重启)时指数退避重建,
@@ -56,34 +57,38 @@ namespace RoundedTB
                     {
                         // Section for running less important things without requiring an additional thread
                         infrequentCount++;
-                        // 每 5 tick(≈0.5s)做一次低频工作。曾为 10(1s);收紧到 5 以更快刷新 UIA
-                        // 内容边界,缓解动态模式新图标被裁一半的窗口(见 RefreshContentBounds)。
-                        if (infrequentCount == 5)
+                        // 每 10 tick(≈1s)做一次低频工作(动态模式新图标半截主要靠 region 重放前的
+                        // 同步刷新 RefreshContentBounds 缓解,这里的周期刷新是兜底,无需 0.5s,省 CPU)。
+                        if (infrequentCount == 10)
                         {
-                            // Check to see if settings need to be shown
-                            List<IntPtr> windowList = Interaction.GetTopLevelWindows();
-                            foreach (IntPtr hwnd in windowList)
+                            // 单实例"设置请求"检测:枚举所有顶层窗口开销不小,每 3 次 infrequent(≈3s)做一次。
+                            if (++settingsRequestCount >= 3)
                             {
-                                StringBuilder windowClass = new StringBuilder(1024);
-                                StringBuilder windowTitle = new StringBuilder(1024);
-                                try
+                                settingsRequestCount = 0;
+                                List<IntPtr> windowList = Interaction.GetTopLevelWindows();
+                                foreach (IntPtr hwnd in windowList)
                                 {
-                                    LocalPInvoke.GetClassName(hwnd, windowClass, 1024);
-                                    LocalPInvoke.GetWindowText(hwnd, windowTitle, 1024);
-
-                                    if (windowClass.ToString().Contains("HwndWrapper[RoundedTB.exe") && windowTitle.ToString() == "RoundedTB_SettingsRequest")
+                                    StringBuilder windowClass = new StringBuilder(1024);
+                                    StringBuilder windowTitle = new StringBuilder(1024);
+                                    try
                                     {
-                                        mw.Dispatcher.Invoke(() =>
+                                        LocalPInvoke.GetClassName(hwnd, windowClass, 1024);
+                                        LocalPInvoke.GetWindowText(hwnd, windowTitle, 1024);
+
+                                        if (windowClass.ToString().Contains("HwndWrapper[RoundedTB.exe") && windowTitle.ToString() == "RoundedTB_SettingsRequest")
                                         {
-                                            if (mw.Visibility != Visibility.Visible)
+                                            mw.Dispatcher.Invoke(() =>
                                             {
-                                                mw.ShowMenuItem_Click(null, null);
-                                            }
-                                        });
-                                        LocalPInvoke.SetWindowText(hwnd, "RoundedTB");
+                                                if (mw.Visibility != Visibility.Visible)
+                                                {
+                                                    mw.ShowMenuItem_Click(null, null);
+                                                }
+                                            });
+                                            LocalPInvoke.SetWindowText(hwnd, "RoundedTB");
+                                        }
                                     }
+                                    catch (Exception) { }
                                 }
-                                catch (Exception) { }
                             }
 
                             // Update tray icon
@@ -103,11 +108,15 @@ namespace RoundedTB
                             // On Windows 11 22H2+ the legacy app-list window rects no longer move as
                             // apps open and close, so periodically re-derive the true content bounds
                             // from UI Automation and force a redraw when they change.
-                            foreach (Types.Taskbar tb in mw.taskbarDetails)
+                            // 仅在动态模式需要 UIA 内容边界(Simple 模式不需要),降低 CPU。
+                            if (mw.activeSettings.IsDynamic)
                             {
-                                if (RefreshContentBounds(tb))
+                                foreach (Types.Taskbar tb in mw.taskbarDetails)
                                 {
-                                    tb.Ignored = true;
+                                    if (RefreshContentBounds(tb))
+                                    {
+                                        tb.Ignored = true;
+                                    }
                                 }
                             }
 
