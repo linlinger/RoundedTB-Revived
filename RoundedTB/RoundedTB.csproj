@@ -8,12 +8,14 @@
     <ImportWindowsDesktopTargets>true</ImportWindowsDesktopTargets>
   </PropertyGroup>
   <PropertyGroup>
-    <!-- 构建通道:Canary(默认)/ Dev / Master。用法:dotnet build -c Release -p:Channel=Master -->
+    <!-- 构建通道:Canary(默认)/ Dev / Master。用法:dotnet build -c Release -p:Channel=Master
+         大小写不敏感(canary/canary/CANARY 均可),并统一生成大写 CHANNEL_XXX 符号。 -->
     <Channel Condition="'$(Channel)' == ''">Canary</Channel>
-    <DefineConstants>$(DefineConstants);CHANNEL_$(Channel)</DefineConstants>
-    <ApplicationIcon Condition="'$(Channel)' == 'Canary'">RoundedTBCanary.ico</ApplicationIcon>
-    <ApplicationIcon Condition="'$(Channel)' == 'Dev'">RoundedTBDev.ico</ApplicationIcon>
-    <ApplicationIcon Condition="'$(Channel)' == 'Master'">RoundedTB.ico</ApplicationIcon>
+    <ChannelLower>$(Channel.ToLowerInvariant())</ChannelLower>
+    <DefineConstants>$(DefineConstants);CHANNEL_$(Channel.ToUpperInvariant())</DefineConstants>
+    <ApplicationIcon Condition="'$(ChannelLower)' == 'canary'">RoundedTBCanary.ico</ApplicationIcon>
+    <ApplicationIcon Condition="'$(ChannelLower)' == 'dev'">RoundedTBDev.ico</ApplicationIcon>
+    <ApplicationIcon Condition="'$(ChannelLower)' == 'master'">RoundedTB.ico</ApplicationIcon>
   </PropertyGroup>
   <PropertyGroup>
     <ApplicationManifest>app.manifest</ApplicationManifest>
@@ -50,9 +52,6 @@
       <ProductName>.NET Framework 3.5 SP1</ProductName>
       <Install>false</Install>
     </BootstrapperPackage>
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="RoundedTB.ico" />
   </ItemGroup>
   <ItemGroup>
     <Resource Include="RoundedTBDev.ico" />

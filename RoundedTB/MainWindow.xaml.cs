@@ -67,6 +67,10 @@ namespace RoundedTB
 
             InitializeComponent();
 
+            // 按构建通道设置标题栏图标(Icon 需要 ImageSource;x:Static 返回 string 会抛异常,
+            // 因此用代码设置 BitmapImage)
+            mainTitleBar.Icon = new System.Windows.Media.Imaging.BitmapImage(new Uri(ChannelInfo.IconUri));
+
             // 右上角关闭按钮 = 只隐藏设置窗口,程序继续在托盘运行(对齐 R3.1 / ModernWpf 行为)。
             // WPFUI 的 TitleBar 在 ApplicationNavigation 模式下,关闭按钮默认会直接 Application.Shutdown(),
             // 必须用 CloseActionOverride 接管。注意:它传的是内部 _parent 字段(懒赋值,可能为 null),需防御。

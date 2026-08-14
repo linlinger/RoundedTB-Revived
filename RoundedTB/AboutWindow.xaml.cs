@@ -30,6 +30,8 @@ namespace RoundedTB
             bannerMst.Visibility = ChannelInfo.Name == "Master" ? Visibility.Visible : Visibility.Hidden;
             bannerDev.Visibility = ChannelInfo.Name == "Dev" ? Visibility.Visible : Visibility.Hidden;
             bannerCan.Visibility = ChannelInfo.Name == "Canary" ? Visibility.Visible : Visibility.Hidden;
+            // 按构建通道设置标题栏图标(Icon 需要 ImageSource;x:Static 返回 string 会抛异常)
+            aboutTitleBar.Icon = new System.Windows.Media.Imaging.BitmapImage(new Uri(ChannelInfo.IconUri));
 
             // 关闭按钮 = 只关闭本窗口。TitleBar 设了 ApplicationNavigation=True,默认关闭按钮会
             // 直接 Application.Shutdown() 退出整个程序,必须覆盖为正常关闭窗口。
