@@ -304,6 +304,12 @@ namespace RoundedTB
             }
             autoHideComboBox.SelectedIndex = activeSettings.AutoHide;
             taskbarDetails = Taskbar.GenerateTaskbarInfo();
+            // 启动时先恢复上次可能残留的任务栏(上次被任务管理器强制结束/异常退出未清理),
+            // 再应用新的 region,避免重启后任务栏仍被旧 region 裁剪。
+            foreach (Types.Taskbar tb in taskbarDetails)
+            {
+                Taskbar.ResetTaskbar(tb, activeSettings);
+            }
 
             ApplyButton_Click(null, null);
 
@@ -658,13 +664,10 @@ namespace RoundedTB
         {
             base.OnClosing(e);
 
-            if (shouldReallyDieNoReally == false)
-            {
-                e.Cancel = true;
-                Visibility = Visibility.Hidden;
-                ShowMenuItem.Header = Localization.Get("Menu_Show");
-            }
-            else
+            // 点叉已被 mainTitleBar.CloseActionOverride 拦截为 Hide,不会走到这里。
+            // 走到这里 = 外部 WM_CLOSE(任务管理器"结束任务"/Alt+F4/系统注销关机)或托盘 Exit。
+            // 一律恢复任务栏并退出:若仅隐藏,任务管理器会判定"未响应"并强制结束进程
+            // (TerminateProcess,无法捕获),导致任务栏 region 残留、托盘图标随进程消失。
             {
 
 

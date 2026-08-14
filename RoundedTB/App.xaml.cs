@@ -55,6 +55,29 @@ namespace RoundedTB
             new MainWindow();
         }
 
+        protected override void OnExit(ExitEventArgs e)
+        {
+            // 兜底:任何退出路径都恢复任务栏(OnClosing 已做,此处幂等补漏,覆盖可能漏掉的退出路径)。
+            try
+            {
+                foreach (Window w in Windows)
+                {
+                    if (w is MainWindow mw)
+                    {
+                        foreach (var tb in mw.taskbarDetails)
+                        {
+                            Taskbar.ResetTaskbar(tb, mw.activeSettings);
+                        }
+                        break;
+                    }
+                }
+            }
+            catch
+            {
+            }
+            base.OnExit(e);
+        }
+
         /// <summary>全局未处理异常写入 rtb.log(不依赖 mw 实例,程序早期也可用)。</summary>
         private static void LogGlobalException(string source, Exception ex)
         {
