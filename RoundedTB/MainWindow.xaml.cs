@@ -475,10 +475,12 @@ namespace RoundedTB
 
                 if (_trayIcon != null)
                 {
-                    // 加载主题对应的托盘图标(traylight.ico=黑/traydark.ico=白)并设置到 Shell_NotifyIcon。
+                    // 加载主题对应的托盘图标(TrayLight.ico=黑/TrayDark.ico=白)并设置到 Shell_NotifyIcon。
+                    // 注意:pack URI 资源匹配大小写敏感,必须与 res/ 下实际文件名一致(此前小写
+                    // "traylight.ico" 找不到资源,GetResourceStream 抛异常被吞,图标从不加载)。
                     Uri iconUri = light
-                        ? new Uri("pack://application:,,,/res/traylight.ico")
-                        : new Uri("pack://application:,,,/res/traydark.ico");
+                        ? new Uri("pack://application:,,,/res/TrayLight.ico")
+                        : new Uri("pack://application:,,,/res/TrayDark.ico");
                     _trayIconImage?.Dispose();
                     using (System.IO.Stream iconStream = System.Windows.Application.GetResourceStream(iconUri).Stream)
                     {
@@ -488,9 +490,10 @@ namespace RoundedTB
                     _trayIcon.SetIcon(_trayIconImage.Handle, "RoundedTB Revived");
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // 设置失败时保持默认图标,不影响主功能。
+                // 设置失败时保持默认图标,不影响主功能;记录以便排查托盘图标不显示。
+                try { interaction.AddLog($"TrayIconCheck failed: {ex.Message}"); } catch { }
             }
         }
 
