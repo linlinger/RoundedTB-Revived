@@ -308,6 +308,14 @@ namespace RoundedTB
                         x2 += Convert.ToInt32(20 * taskbar.ScaleFactor);
                     }
                 }
+                // 额外 padding:防止圆角矩形边界紧贴首/末程序图标,调大圆角半径时弧形裁切图标。
+                // 居中:左右各向外扩;左对齐:只扩右侧(左侧由用户 marginLeft 决定,不破坏贴边)。
+                int iconEdgePadding = Convert.ToInt32(6 * taskbar.ScaleFactor);
+                if (settings.IsCentred)
+                {
+                    x1 -= iconEdgePadding;
+                }
+                x2 += iconEdgePadding;
                 if (x1 < 0) x1 = 0;
                 if (x2 > taskbarWidth) x2 = taskbarWidth;
                 if (x2 <= x1)
