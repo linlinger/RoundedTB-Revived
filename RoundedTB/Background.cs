@@ -412,13 +412,8 @@ namespace RoundedTB
                 // 合理性检查:UIA 在任务栏重绘/悬停等瞬间偶发返回异常值,
                 // 只在结果可信时才更新缓存,避免把左/右边界拉崩
                 // (例如左侧多出一段空白任务栏)。
-                // 关键:contentLeft 除了下界(≥任务栏左)还必须限制上界(<托盘左)——任务栏重绘瞬间
-                // StartButton 等左侧元素可能暂时 IsOffscreen,此时 UIA 只报右侧元素,contentLeft
-                // 会异常偏右;若无上界约束,居中模式 x1=contentLeft-marginLeft 会把圆角矩形左边界
-                // 推到右侧,左边露出整条任务栏(476c9eb 半截缓解每次重放前刷新后更易触发)。
                 bool sane =
                     contentLeft >= tb.TaskbarRect.Left &&
-                    (tb.TrayRect.Left <= tb.TaskbarRect.Left || contentLeft < tb.TrayRect.Left) &&
                     contentRight > contentLeft &&
                     contentRight <= tb.TaskbarRect.Right &&
                     (tb.TrayRect.Left <= tb.TaskbarRect.Left || contentRight <= tb.TrayRect.Left);
