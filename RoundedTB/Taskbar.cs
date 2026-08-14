@@ -358,6 +358,9 @@ namespace RoundedTB
                         );
 
                     LocalPInvoke.CombineRgn(workingRegion, trayRegion, mainRegion, 2);
+                    // 释放临时 region,否则每次动态重放泄漏 GDI 句柄 → 长时间运行 OutOfMemory(26H1 闪退根因)。
+                    LocalPInvoke.DeleteObject(trayRegion);
+                    LocalPInvoke.DeleteObject(mainRegion);
                     mainRegion = workingRegion;
                 }
 
@@ -373,11 +376,21 @@ namespace RoundedTB
                         );
 
                     LocalPInvoke.CombineRgn(workingRegion, widgetsRegion, mainRegion, 2);
+                    LocalPInvoke.DeleteObject(widgetsRegion);
+                    if (mainRegion != workingRegion)
+                    {
+                        LocalPInvoke.DeleteObject(mainRegion);
+                    }
                     mainRegion = workingRegion;
                 }
 
                 // Apply the final region to the taskbar
                 LocalPInvoke.SetWindowRgn(taskbar.TaskbarHwnd, mainRegion, true);
+                // workingRegion 未被 ShowTray/ShowWidgets 使用(未成为 mainRegion)时释放,避免泄漏。
+                if (mainRegion != workingRegion)
+                {
+                    LocalPInvoke.DeleteObject(workingRegion);
+                }
                 EnsureLayered(taskbar);
                 if (settings.CompositionCompat)
                 {
