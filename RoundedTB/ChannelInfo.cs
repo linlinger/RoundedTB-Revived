@@ -26,7 +26,7 @@ namespace RoundedTB
         public static readonly bool VerboseLogging = true;
 #else // Master(正式版)
         public const string Name = "Master";
-        public const string Subtitle = "R4.1";
+        public const string Subtitle = "R4.1.2";
         public const string IconUri = "pack://application:,,,/RoundedTB.ico";
         public const string Banner = "res/HeadBanner.png";
         public const int Version = 3;
