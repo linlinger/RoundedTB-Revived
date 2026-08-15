@@ -52,11 +52,22 @@ namespace RoundedTB
 
             // 手动创建主窗口(不通过 StartupUri)。
             var mainWindow = new MainWindow();
-            // 初始化窗口显示一次:WPF ContextMenu 在从未显示/激活的 Hidden 窗口上 Popup 不渲染,
-            // 导致启动时托盘右键菜单不显示(左键开一次设置窗口后即正常)。主动 Show+Hide 让窗口
-            // 激活一次——代价是启动时窗口一闪而过(用户接受,换取托盘菜单启动即用)。
+
+            // 预热窗口一次,让托盘右键菜单"启动即用":WPF ContextMenu 在从未显示/激活的 Hidden
+            // 窗口上 Popup 不渲染。之前的做法是直接 Show()+Hide(),启动瞬间窗口一闪而过,且在
+            // 首次启动(欢迎窗口关闭后)会留下一个白色空窗口。改为:透明度 0 地 Show+Hide,
+            // 窗口从未真正可见,但呈现源/布局已初始化,菜单可正常渲染。
+            mainWindow.Opacity = 0;
             mainWindow.Show();
             mainWindow.Hide();
+            mainWindow.Opacity = 1;
+
+            // 首次启动:欢迎窗口已在构造函数里弹过并关闭,此时再显示设置窗口(内容已初始化,
+            // 不会显示成白色空窗口)。
+            if (mainWindow.isFirstLaunch)
+            {
+                mainWindow.Show();
+            }
         }
 
         protected override void OnExit(ExitEventArgs e)

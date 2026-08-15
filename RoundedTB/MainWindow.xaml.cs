@@ -39,6 +39,7 @@ namespace RoundedTB
         public int numberToForceRefresh = 0;
         public bool isCentred = false;
         public bool isAlreadyRunning = false;
+        public bool isFirstLaunch = false; // 本次是否首次启动(弹过欢迎窗口后需显示设置窗口)
         public Background background;
         public Interaction interaction;
         private HwndSource source;
@@ -381,17 +382,13 @@ namespace RoundedTB
             if (activeSettings.IsNotFirstLaunch != true)
             {
                 activeSettings.IsNotFirstLaunch = true;
+                isFirstLaunch = true;
                 AboutWindow aw = new AboutWindow();
                 aw.expander0.IsExpanded = true;
                 aw.ShowDialog();
-                try
-                {
-                    Visibility = Visibility.Visible;
-                }
-                catch (InvalidOperationException)
-                {
-
-                }
+                // 不在构造里直接 Visibility=Visible:此时窗口内容尚未渲染,直接显示会是一个
+                // 白色空窗口。改为标记 isFirstLaunch,由 App.OnStartup 在"预热"(透明 Show+Hide)
+                // 之后再显示设置窗口,内容已初始化,不会发白。
                 ShowMenuItem.Header = Localization.Get("Menu_Hide");
             }
 
